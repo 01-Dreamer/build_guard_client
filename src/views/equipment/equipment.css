@@ -147,6 +147,23 @@
   background: #fbfdff;
 }
 
+.record-table-body {
+  overflow: hidden !important;
+  scrollbar-width: none;
+}
+
+.record-table-body::-webkit-scrollbar {
+  display: none;
+}
+
+.record-table-body .equipment-table th {
+  height: 36px;
+}
+
+.record-table-body .equipment-table td {
+  height: 37px;
+}
+
 .equipment-table tbody tr:nth-child(even) {
   background: #fafcff;
 }

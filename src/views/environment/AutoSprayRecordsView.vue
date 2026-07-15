@@ -1,7 +1,14 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import AppTopbar from '../../components/AppTopbar.vue'
+import { fillPageRows, useResponsivePageSize } from '../../composables/useResponsivePageSize'
 import { sprayRecords } from './data'
+
+const totalRecords = 44
+const { pageSize } = useResponsivePageSize()
+const visibleRecords = computed(() => fillPageRows(sprayRecords, pageSize.value, totalRecords))
+const totalPages = computed(() => Math.ceil(totalRecords / pageSize.value))
 </script>
 
 <template>
@@ -66,7 +73,7 @@ import { sprayRecords } from './data'
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="record in sprayRecords" :key="record.id">
+                <tr v-for="record in visibleRecords" :key="record.id">
                   <td>{{ record.id }}</td>
                   <td>{{ record.device }}</td>
                   <td>{{ record.location }}</td>
@@ -78,13 +85,13 @@ import { sprayRecords } from './data'
             </table>
           </div>
           <footer class="equipment-pagination">
-            <span class="count">共44条　10条/页</span>
+            <span class="count">共{{ totalRecords }}条　{{ pageSize }}条/页</span>
             <button type="button">‹</button>
             <button class="active" type="button">1</button>
             <button type="button">2</button>
             <button type="button">3</button>
             <button type="button">4</button>
-            <button type="button">5</button>
+            <button type="button">{{ totalPages }}</button>
             <button type="button">›</button>
           </footer>
         </section>
