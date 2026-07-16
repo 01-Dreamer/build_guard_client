@@ -4,6 +4,8 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import './styles.css'
 import './views/equipment/equipment.css'
+import './views/device-management/device-management.css'
+import './views/monitor-config/monitor-config.css'
 import App from './App.vue'
 import router from './router'
 

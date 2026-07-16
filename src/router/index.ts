@@ -107,6 +107,39 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/environment/EnvironmentAlarmRecordsView.vue')
   },
   {
+    path: '/device-management',
+    redirect: '/device-management/types'
+  },
+  {
+    path: '/device-management/types',
+    name: 'device-management-types',
+    component: () => import('../views/device-management/DeviceTypeManagementView.vue')
+  },
+  {
+    path: '/device-management/locations',
+    name: 'device-management-locations',
+    component: () => import('../views/device-management/DeviceLocationManagementView.vue')
+  },
+  {
+    path: '/device-management/devices',
+    name: 'device-management-devices',
+    component: () => import('../views/device-management/DeviceManagementView.vue')
+  },
+  {
+    path: '/monitor-config',
+    redirect: '/monitor-config/points'
+  },
+  {
+    path: '/monitor-config/points',
+    name: 'monitor-config-points',
+    component: () => import('../views/monitor-config/MonitorPointManagementView.vue')
+  },
+  {
+    path: '/monitor-config/environment',
+    name: 'monitor-config-environment',
+    component: () => import('../views/monitor-config/EnvironmentMonitorConfigView.vue')
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }

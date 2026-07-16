@@ -467,7 +467,7 @@ onBeforeUnmount(() => {
 
 .left-column {
   grid-row: 1 / 3;
-  grid-template-rows: 28px 300px 190px minmax(220px, 1fr);
+  grid-template-rows: 28px 220px 190px minmax(0, 1fr);
 }
 
 .center-column {
@@ -526,32 +526,32 @@ onBeforeUnmount(() => {
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   height: calc(100% - 32px);
 }
 
 .metric-card {
   display: grid;
-  grid-template-rows: 22px 18px 22px;
+  grid-template-rows: 18px 16px 20px;
   gap: 2px;
   min-height: 0;
   align-content: center;
   place-items: center;
-  padding: 6px;
+  padding: 6px 4px;
   border-radius: 8px;
 }
 
 .metric-icon {
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   place-items: center;
   border-radius: 50%;
 }
 
 .metric-icon .el-icon {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .metric-card span {
@@ -562,7 +562,7 @@ onBeforeUnmount(() => {
 }
 
 .metric-card strong {
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.05;
 }
 
@@ -752,30 +752,38 @@ td {
 }
 
 .device-panel {
+  display: grid;
+  grid-template-rows: auto repeat(4, minmax(0, 1fr));
+  gap: 10px;
   min-height: 0;
+}
+
+.device-panel h2 {
+  margin-bottom: 0;
 }
 
 .device-card {
   display: grid;
-  grid-template-columns: 62px 1fr;
-  gap: 16px;
+  grid-template-columns: 52px 1fr;
+  gap: 12px;
   align-items: center;
-  padding: 12px;
+  min-height: 0;
+  padding: 10px;
   background: #fbfcfe;
   border: 1px solid #f1f5f9;
   border-radius: 8px;
 }
 
 .device-card + .device-card {
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .device-icon {
   display: grid;
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   place-items: center;
-  font-size: 36px;
+  font-size: 30px;
   background: #fff;
   border-radius: 8px;
   box-shadow: inset 0 0 0 1px #edf1f6;
@@ -788,9 +796,9 @@ td {
 .device-info > strong {
   display: block;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   color: #334155;
-  font-size: 16px;
+  font-size: 15px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -803,15 +811,15 @@ td {
 
 .device-stats span {
   display: grid;
-  gap: 5px;
+  gap: 2px;
   color: #64748b;
-  font-size: 12px;
+  font-size: 11px;
   text-align: center;
 }
 
 .device-stats b {
   color: #334155;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .device-stats .online {

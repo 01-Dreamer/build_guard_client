@@ -33,9 +33,22 @@ const environmentMenuItems = [
   { label: '环境监测报警记录', path: '/environment/alarms' }
 ]
 
+const deviceManagementMenuItems = [
+  { label: '设备类型管理', path: '/device-management/types' },
+  { label: '设备位置管理', path: '/device-management/locations' },
+  { label: '设备管理', path: '/device-management/devices' }
+]
+
+const monitorConfigMenuItems = [
+  { label: '设备监测点管理', path: '/monitor-config/points' },
+  { label: '环境监测管理', path: '/monitor-config/environment' }
+]
+
 const isSiteActive = computed(() => route.path.startsWith('/site'))
 const isEquipmentActive = computed(() => route.path.startsWith('/equipment'))
 const isEnvironmentActive = computed(() => route.path.startsWith('/environment'))
+const isDeviceManagementActive = computed(() => route.path.startsWith('/device-management'))
+const isMonitorConfigActive = computed(() => route.path.startsWith('/monitor-config'))
 
 function goHome() {
   router.push('/')
@@ -50,6 +63,14 @@ function handleEquipmentCommand(path: string) {
 }
 
 function handleEnvironmentCommand(path: string) {
+  router.push(path)
+}
+
+function handleDeviceManagementCommand(path: string) {
+  router.push(path)
+}
+
+function handleMonitorConfigCommand(path: string) {
   router.push(path)
 }
 
@@ -150,18 +171,56 @@ function handleLogout() {
           </el-dropdown-menu>
         </template>
       </el-dropdown>
-      <button type="button">
-        设备管理
-        <el-icon>
-          <ArrowDown />
-        </el-icon>
-      </button>
-      <button type="button">
-        监测配置
-        <el-icon>
-          <ArrowDown />
-        </el-icon>
-      </button>
+      <el-dropdown
+        popper-class="site-nav-popper"
+        trigger="click"
+        @command="handleDeviceManagementCommand"
+      >
+        <button :class="{ active: isDeviceManagementActive }" class="nav-dropdown" type="button">
+          设备管理
+          <el-icon>
+            <ArrowDown />
+          </el-icon>
+        </button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item
+              v-for="item in deviceManagementMenuItems"
+              :key="item.path"
+              :class="{ 'is-current': route.path === item.path }"
+              :command="item.path"
+              :title="item.label"
+            >
+              {{ item.label }}
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+      <el-dropdown
+        popper-class="site-nav-popper"
+        trigger="click"
+        @command="handleMonitorConfigCommand"
+      >
+        <button :class="{ active: isMonitorConfigActive }" class="nav-dropdown" type="button">
+          监测配置
+          <el-icon>
+            <ArrowDown />
+          </el-icon>
+        </button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item
+              v-for="item in monitorConfigMenuItems"
+              :key="item.path"
+              :class="{ 'is-current': route.path === item.path }"
+              :command="item.path"
+              :title="item.label"
+            >
+              {{ item.label }}
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </nav>
 
     <div class="top-actions">

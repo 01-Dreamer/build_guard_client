@@ -43,6 +43,17 @@ import { envStatusClass, sprayTasks } from './data'
         <section class="equipment-panel env-table-panel">
           <div class="record-table-body">
             <table class="equipment-table">
+              <colgroup>
+                <col class="col-index" />
+                <col class="col-name" />
+                <col class="col-time" />
+                <col class="col-duration" />
+                <col class="col-cycle" />
+                <col class="col-unit" />
+                <col class="col-status" />
+                <col class="col-time" />
+                <col class="col-actions" />
+              </colgroup>
               <thead>
                 <tr>
                   <th>序号</th>
@@ -68,7 +79,7 @@ import { envStatusClass, sprayTasks } from './data'
                     <span class="status-pill" :class="envStatusClass(task.status)">{{ task.status }}</span>
                   </td>
                   <td>{{ task.nextTime }}</td>
-                  <td>
+                  <td class="action-cell">
                     <button class="link-btn" type="button"><el-icon><Edit /></el-icon> 修改</button>
                     <button class="link-btn" type="button"><el-icon><Delete /></el-icon> 删除</button>
                   </td>
@@ -132,6 +143,48 @@ import { envStatusClass, sprayTasks } from './data'
   display: inline-flex;
   gap: 4px;
   align-items: center;
-  margin-right: 8px;
+  height: 28px;
+  padding: 0 4px;
+  margin-right: 0;
+  white-space: nowrap;
+}
+
+.action-cell {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  overflow: visible;
+}
+
+.col-index {
+  width: 70px;
+}
+
+.col-name {
+  width: 210px;
+}
+
+.col-time {
+  width: 220px;
+}
+
+.col-duration {
+  width: 160px;
+}
+
+.col-cycle {
+  width: 120px;
+}
+
+.col-unit {
+  width: 160px;
+}
+
+.col-status {
+  width: 120px;
+}
+
+.col-actions {
+  width: 190px;
 }
 </style>
