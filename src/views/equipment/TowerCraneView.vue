@@ -1,26 +1,63 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { Cpu, DataLine, Odometer, Warning } from '@element-plus/icons-vue'
+import { getTowerCraneDashboard, type EquipmentDashboard, type EquipmentInfoItem, type EquipmentMetric } from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
 import EquipmentChart from '../../components/equipment/EquipmentChart.vue'
-import { equipmentMenuItems, towerInfo } from './data'
-import { gaugeOption, lineOption } from './chartOptions'
+import { formatDateTime } from '../../utils/format'
+import { alarmTrendOption, gaugeOption, lineOption } from './chartOptions'
 
-const towerTabs = ['东区塔吊#1', '西区塔吊#2', '基坑塔吊#3']
-const workMetrics = [
-  { value: '6.00min', label: '工作时长' },
-  { value: '8次', label: '今日吊次' },
-  { value: '121.27T', label: '今日吊重' },
-  { value: '56.11T/min', label: '今日功效' },
-  { value: '2次', label: '今日报警' }
-]
-const realtimeMetrics = [
-  { value: '18.55T', label: '吊量', icon: Odometer },
-  { value: '50M', label: '幅度', icon: DataLine },
-  { value: '0.45度', label: '倾度', icon: Cpu },
-  { value: '10.44m/s', label: '风速', icon: DataLine },
-  { value: '927.50 M·T', label: '力矩', icon: Warning },
-  { value: '10.76M', label: '高度', icon: Odometer }
-]
+const dashboard = ref<EquipmentDashboard>({})
+const towerTabs = computed(() => (dashboard.value.devices || []).map((device) => device.name))
+const activeDevice = computed(() => dashboard.value.devices?.[0])
+const towerInfo = computed(() =>
+  (dashboard.value.info || []).map((item: EquipmentInfoItem) => ({
+    ...item,
+    value: String(item.value ?? '-'),
+    tone: 'blue' as const
+  }))
+)
+const workMetrics = computed(() =>
+  (dashboard.value.workMetrics || []).map((metric: EquipmentMetric) => ({
+    label: metric.label,
+    value: `${metric.value ?? '-'}${metric.unit ?? ''}`
+  }))
+)
+const realtimeIconMap = [Odometer, DataLine, Cpu, DataLine, Warning, Odometer]
+const realtimeMetrics = computed(() =>
+  (dashboard.value.realtimeMetrics || []).map((metric: EquipmentMetric, index) => ({
+    label: metric.label,
+    value: `${metric.value ?? '-'}${metric.unit ?? ''}`,
+    icon: realtimeIconMap[index % realtimeIconMap.length]
+  }))
+)
+const alarmSummary = computed(() => ({
+  todayWarnings: dashboard.value.alarmSummary?.todayWarnings ?? 0,
+  totalWarnings: dashboard.value.alarmSummary?.totalWarnings ?? 0,
+  todayAlarms: dashboard.value.alarmSummary?.todayAlarms ?? 0,
+  totalAlarms: dashboard.value.alarmSummary?.totalAlarms ?? 0
+}))
+const momentSeries = computed(() => (dashboard.value.telemetry || []).map((item) => Number(item.moment) || 0))
+const weightSeries = computed(() => (dashboard.value.telemetry || []).map((item) => Number(item.weight) || 0))
+const rotationValue = computed(() => Number(dashboard.value.telemetry?.at(-1)?.rotation) || 0)
+const reportedAt = computed(() => formatDateTime(dashboard.value.telemetry?.at(-1)?.time))
+const reportedAtParts = computed(() => splitDateTime(dashboard.value.telemetry?.at(-1)?.time))
+
+function splitDateTime(value?: string | number | Date | null) {
+  const formatted = formatDateTime(value)
+  const [date = formatted, time = ''] = formatted.split(' ')
+  return { date, time }
+}
+
+async function loadTowerDashboard() {
+  try {
+    dashboard.value = await getTowerCraneDashboard()
+  } catch {
+    dashboard.value = {}
+  }
+}
+
+onMounted(loadTowerDashboard)
 </script>
 
 <template>
@@ -42,19 +79,21 @@ const realtimeMetrics = [
               </h2>
               <div class="alarm-counts">
                 <article>
-                  <strong>1</strong>
+                  <strong>{{ alarmSummary.todayWarnings }}</strong>
                   <span>当日预警</span>
-                  <b>16</b>
+                  <b>{{ alarmSummary.totalWarnings }}</b>
                   <em>累计预警</em>
                 </article>
                 <article class="red">
-                  <strong>1</strong>
+                  <strong>{{ alarmSummary.todayAlarms }}</strong>
                   <span>当日报警</span>
-                  <b>39</b>
+                  <b>{{ alarmSummary.totalAlarms }}</b>
                   <em>累计报警</em>
                 </article>
               </div>
             </section>
+
+            <EquipmentChart title="报警趋势" :option="alarmTrendOption()" />
 
             <section class="equipment-panel">
               <h2>设备信息</h2>
@@ -75,15 +114,16 @@ const realtimeMetrics = [
 
           <section class="equipment-panel tower-workspace">
             <nav class="tab-list">
-              <RouterLink
+              <button
                 v-for="tab in towerTabs"
                 :key="tab"
-                to="/equipment/tower-crane"
-                :class="{ active: tab === '西区塔吊#2' }"
+                type="button"
+                :class="{ active: tab === activeDevice?.name }"
               >
                 {{ tab }}
                 <span class="live-dot" />
-              </RouterLink>
+              </button>
+              <button v-if="!towerTabs.length" type="button" class="active">暂无设备</button>
             </nav>
 
             <div class="tower-hero">
@@ -92,8 +132,12 @@ const realtimeMetrics = [
                 <div class="tower-jib" />
                 <div class="tower-counter" />
                 <div class="tower-hook" />
-                <strong>设备编号 td002</strong>
-                <span>数据获取时间 2025-11-28 11:16:39</span>
+                <strong>设备编号 {{ activeDevice?.code || '-' }}</strong>
+                <span class="data-time" :title="reportedAt">
+                  <em>数据获取时间</em>
+                  {{ reportedAtParts.date }}
+                  <b v-if="reportedAtParts.time">{{ reportedAtParts.time }}</b>
+                </span>
               </div>
 
               <div class="work-list">
@@ -104,7 +148,7 @@ const realtimeMetrics = [
               </div>
 
               <div class="gauge-wrap">
-                <EquipmentChart title="回转角度" :option="gaugeOption(121)" />
+                <EquipmentChart title="回转角度" :option="gaugeOption(rotationValue)" />
               </div>
             </div>
 
@@ -127,8 +171,8 @@ const realtimeMetrics = [
           </section>
 
           <aside class="machine-right">
-            <EquipmentChart title="实时力矩" :option="lineOption('#5b7cfa', [398, 376, 384, 397, 306, 392, 312])" />
-            <EquipmentChart title="实时吊重" :option="lineOption('#5b7cfa', [14.6, 13.9, 15.7, 14.0, 15.1, 12.0, 18.5], '吊重', 'T')" />
+            <EquipmentChart title="实时力矩" :option="lineOption('#5b7cfa', momentSeries)" />
+            <EquipmentChart title="实时吊重" :option="lineOption('#5b7cfa', weightSeries, '吊重', 'T')" />
           </aside>
         </section>
       </div>
@@ -139,9 +183,30 @@ const realtimeMetrics = [
 <style scoped>
 .machine-layout {
   display: grid;
-  grid-template-columns: 300px minmax(560px, 1fr) 330px;
-  gap: 12px;
+  grid-template-columns: 300px minmax(0, 1fr) 330px;
+  gap: 14px;
   min-height: 0;
+}
+
+.tab-list button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  height: 34px;
+  padding: 0 16px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  background: #f8fafc;
+  border: 1px solid #dbe3ee;
+  border-radius: 6px;
+}
+
+.tab-list button.active {
+  color: #fff;
+  background: #3f6fed;
+  border-color: #3f6fed;
 }
 
 .machine-left,
@@ -150,6 +215,11 @@ const realtimeMetrics = [
   align-content: start;
   gap: 12px;
   min-height: 0;
+}
+
+.machine-right {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  align-content: stretch;
 }
 
 .alarm-counts {
@@ -187,24 +257,27 @@ const realtimeMetrics = [
 
 .tower-workspace {
   display: grid;
-  grid-template-rows: auto minmax(360px, 1fr) auto;
+  grid-template-rows: auto minmax(300px, 1fr) auto;
   gap: 12px;
 }
 
 .tower-hero {
   display: grid;
-  grid-template-columns: minmax(260px, 0.9fr) minmax(260px, 1fr) 280px;
-  gap: 18px;
+  grid-template-columns: minmax(180px, 0.85fr) minmax(220px, 1fr) minmax(180px, 0.8fr);
+  gap: 14px;
   align-items: center;
   min-height: 0;
-  padding: 28px;
+  overflow: hidden;
+  padding: 20px;
   background: linear-gradient(180deg, #fbfdff, #f7faff);
+  border: 1px solid #e6eefb;
   border-radius: 8px;
 }
 
 .tower-drawing {
   position: relative;
-  min-height: 360px;
+  height: 100%;
+  min-height: 260px;
 }
 
 .tower-mast,
@@ -217,9 +290,9 @@ const realtimeMetrics = [
 
 .tower-mast {
   left: 44%;
-  bottom: 70px;
+  bottom: 58px;
   width: 24px;
-  height: 220px;
+  height: 190px;
   background:
     repeating-linear-gradient(45deg, transparent 0 14px, rgba(255, 255, 255, 0.9) 14px 18px),
     #6fa0ff;
@@ -228,7 +301,7 @@ const realtimeMetrics = [
 
 .tower-jib {
   left: 33%;
-  top: 80px;
+  top: 56px;
   width: 58%;
   height: 16px;
   transform: skewX(22deg);
@@ -237,7 +310,7 @@ const realtimeMetrics = [
 
 .tower-counter {
   left: 19%;
-  top: 82px;
+  top: 58px;
   width: 70px;
   height: 22px;
   background: #f59e0b;
@@ -245,9 +318,9 @@ const realtimeMetrics = [
 
 .tower-hook {
   left: 78%;
-  top: 96px;
+  top: 72px;
   width: 3px;
-  height: 96px;
+  height: 82px;
 }
 
 .tower-hook::after {
@@ -283,30 +356,67 @@ const realtimeMetrics = [
   color: #6d95ff;
 }
 
+.tower-drawing .data-time {
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
+  color: #315985;
+  font-family: "DIN Alternate", "Roboto Mono", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.tower-drawing .data-time em {
+  color: #64748b;
+  font-family: inherit;
+  font-style: normal;
+}
+
+.tower-drawing .data-time b {
+  color: #2f3f58;
+  font-weight: 900;
+}
+
 .work-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .metric-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 58px;
-  padding: 0 18px;
+  min-height: 52px;
+  padding: 0 16px;
   background: #fff;
   border: 1px solid #e6eefb;
   border-radius: 8px;
 }
 
 .gauge-wrap :deep(.chart-card) {
-  height: 320px;
+  height: 280px;
   box-shadow: none;
 }
 
 .realtime-metrics h2 {
-  margin: 0 0 12px;
+  margin: 0 0 10px;
   font-size: 16px;
+}
+
+.realtime-metrics .metric-tile-grid {
+  gap: 8px;
+}
+
+.realtime-metrics :deep(.metric-tile),
+.realtime-metrics .metric-tile {
+  min-height: 56px;
+  padding: 8px 12px;
+}
+
+.realtime-metrics :deep(.metric-tile strong),
+.realtime-metrics .metric-tile strong {
+  font-size: 18px;
 }
 
 @media (max-width: 1180px) {

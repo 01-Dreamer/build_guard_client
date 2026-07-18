@@ -140,6 +140,20 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/monitor-config/EnvironmentMonitorConfigView.vue')
   },
   {
+    path: '/personnel',
+    redirect: '/personnel/info'
+  },
+  {
+    path: '/personnel/info',
+    name: 'personnel-info',
+    component: () => import('../views/personnel/PersonnelManagementView.vue')
+  },
+  {
+    path: '/personnel/violations',
+    name: 'personnel-violations',
+    component: () => import('../views/personnel/ViolationHandlingView.vue')
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }
@@ -152,17 +166,18 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const authStore = useAuthStore()
+  const isLoggedIn = authStore.isAuthenticated
+  const guestOnly = Boolean(to.meta.guestOnly)
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+  if (!guestOnly && !isLoggedIn) {
     return {
       path: '/login',
       query: { redirect: to.fullPath }
     }
   }
 
-  if (to.meta.guestOnly && authStore.isAuthenticated) {
-    const redirect = to.query.redirect
-    return typeof redirect === 'string' ? redirect : '/'
+  if (guestOnly && isLoggedIn) {
+    return '/'
   }
 
   return true

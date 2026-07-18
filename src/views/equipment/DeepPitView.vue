@@ -1,20 +1,50 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { DataAnalysis, Memo } from '@element-plus/icons-vue'
+import { getDeepPitDashboard, type EquipmentDashboard } from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
 import Equipment3DModel from '../../components/equipment/Equipment3DModel.vue'
 import EquipmentChart from '../../components/equipment/EquipmentChart.vue'
-import { pitRows } from './data'
+import { formatDateTime } from '../../utils/format'
 import { alarmTrendOption, pieOption } from './chartOptions'
 
-const tabs = ['西区2#深基坑', '山东省', '东区1#深基坑']
-const settlementRows = [
-  ['16:22', '9.42', '报警'],
-  ['16:22', '8.92', '报警'],
-  ['16:22', '11.89', '报警'],
-  ['16:22', '9.24', '报警'],
-  ['16:22', '11.06', '报警'],
-  ['16:22', '8.18', '报警']
-]
+const dashboard = ref<EquipmentDashboard>({})
+const tabs = computed(() => (dashboard.value.devices || []).map((device) => device.name))
+const activeDevice = computed(() => dashboard.value.devices?.[0])
+const pitRows = computed(() =>
+  (dashboard.value.monitorRows || []).map((row) => ({
+    name: row.name,
+    value: String(row.value ?? '-'),
+    unit: row.unit || '-',
+    time: formatDateTime(row.time),
+    timeParts: splitDateTime(row.time),
+    alert: row.alert
+  }))
+)
+const settlementRows = computed(() =>
+  (dashboard.value.settlementRows || []).map((row) => ({
+    time: formatDateTime(row.time),
+    timeParts: splitDateTime(row.time),
+    value: String(row.value ?? '-'),
+    status: row.status || '-'
+  }))
+)
+
+function splitDateTime(value?: string | number | Date | null) {
+  const formatted = formatDateTime(value)
+  const [date = formatted, time = ''] = formatted.split(' ')
+  return { date, time }
+}
+
+async function loadDeepPitDashboard() {
+  try {
+    dashboard.value = await getDeepPitDashboard()
+  } catch {
+    dashboard.value = {}
+  }
+}
+
+onMounted(loadDeepPitDashboard)
 </script>
 
 <template>
@@ -34,24 +64,38 @@ const settlementRows = [
                 </el-icon>
                 实时监测数据
               </h2>
-              <table class="monitor-table">
-                <thead>
-                  <tr>
-                    <th>监测项名称</th>
-                    <th>采集值</th>
-                    <th>单位</th>
-                    <th>监测时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in pitRows" :key="row.name">
-                    <td :title="row.name">{{ row.name }}</td>
-                    <td :class="{ alert: row.alert }">{{ row.value }}</td>
-                    <td>{{ row.unit }}</td>
-                    <td :title="row.time">{{ row.time }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="table-scroll realtime-table-scroll">
+                <table class="monitor-table">
+                  <colgroup>
+                    <col class="col-monitor-name" />
+                    <col class="col-monitor-value" />
+                    <col class="col-monitor-unit" />
+                    <col class="col-monitor-time" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>监测项名称</th>
+                      <th>采集值</th>
+                      <th>单位</th>
+                      <th>监测时间</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in pitRows" :key="row.name">
+                      <td :title="row.name">{{ row.name }}</td>
+                      <td :class="{ alert: row.alert }">{{ row.value }}</td>
+                      <td>{{ row.unit }}</td>
+                      <td class="time-cell detail-time-cell" :title="row.time">
+                        <span>{{ row.timeParts.date }}</span>
+                        <strong>{{ row.timeParts.time }}</strong>
+                      </td>
+                    </tr>
+                    <tr v-if="!pitRows.length">
+                      <td colspan="4">暂无实时监测数据</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </section>
 
             <section class="equipment-panel">
@@ -61,22 +105,35 @@ const settlementRows = [
                 </el-icon>
                 沉降数据
               </h2>
-              <table class="monitor-table compact">
-                <thead>
-                  <tr>
-                    <th>时间</th>
-                    <th>沉降量(mm)</th>
-                    <th>状态</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in settlementRows" :key="row[0] + row[1]">
-                    <td>{{ row[0] }}</td>
-                    <td>{{ row[1] }}</td>
-                    <td class="alert">{{ row[2] }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <div class="table-scroll settlement-table-scroll">
+                <table class="monitor-table compact">
+                  <colgroup>
+                    <col class="col-settlement-time" />
+                    <col />
+                    <col class="col-settlement-status" />
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th>时间</th>
+                      <th>沉降量(mm)</th>
+                      <th>状态</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in settlementRows" :key="row.time + row.value">
+                      <td class="time-cell detail-time-cell" :title="row.time">
+                        <span>{{ row.timeParts.date }}</span>
+                        <strong>{{ row.timeParts.time }}</strong>
+                      </td>
+                      <td>{{ row.value }}</td>
+                      <td class="alert">{{ row.status }}</td>
+                    </tr>
+                    <tr v-if="!settlementRows.length">
+                      <td colspan="3">暂无沉降数据</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </section>
           </aside>
 
@@ -86,11 +143,12 @@ const settlementRows = [
                 v-for="tab in tabs"
                 :key="tab"
                 to="/equipment/deep-pit"
-                :class="{ active: tab === '东区1#深基坑' }"
+                :class="{ active: tab === activeDevice?.name }"
               >
                 {{ tab }}
                 <span class="live-dot" />
               </RouterLink>
+              <RouterLink v-if="!tabs.length" to="/equipment/deep-pit" class="active">暂无设备</RouterLink>
             </nav>
 
             <div class="model-wrap">
@@ -121,26 +179,58 @@ const settlementRows = [
 <style scoped>
 .structure-layout {
   display: grid;
-  grid-template-columns: 320px minmax(560px, 1fr) 360px;
-  gap: 12px;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(560px, 1.35fr) minmax(340px, 0.9fr);
+  gap: 14px;
+  align-items: stretch;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .structure-left,
 .structure-right {
   display: grid;
-  align-content: start;
+  align-content: stretch;
   gap: 12px;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
+}
+
+.structure-left {
+  grid-template-rows: minmax(0, 0.56fr) minmax(0, 0.44fr);
+}
+
+.structure-left > .equipment-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 16px;
+}
+
+.structure-right {
+  grid-template-rows: repeat(2, minmax(0, 1fr));
 }
 
 .structure-center {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  padding: 18px;
+  overflow: hidden;
 }
 
 .model-wrap {
   position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fbfdff, #f4f8ff);
+  border: 1px solid #e6eefb;
+  border-radius: 8px;
+}
+
+.model-wrap :deep(.equipment-3d-model) {
   min-height: 0;
 }
 
@@ -209,12 +299,95 @@ const settlementRows = [
 
 .compact th,
 .compact td {
-  height: 42px;
+  height: 40px;
+}
+
+.monitor-table {
+  table-layout: fixed;
+}
+
+.table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.table-scroll .monitor-table {
+  min-width: 100%;
+}
+
+.table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.monitor-table th,
+.monitor-table td {
+  height: 40px;
+  padding: 0 10px;
+}
+
+.col-monitor-name {
+  width: 31%;
+}
+
+.col-monitor-value {
+  width: 18%;
+}
+
+.col-monitor-unit {
+  width: 14%;
+}
+
+.col-monitor-time,
+.col-settlement-time {
+  width: 37%;
+}
+
+.col-settlement-status {
+  width: 62px;
+}
+
+.detail-time-cell {
+  line-height: 1.18;
+  white-space: normal;
+}
+
+.detail-time-cell span,
+.detail-time-cell strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-time-cell span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.detail-time-cell strong {
+  color: #2f3f58;
+  font-size: 13px;
 }
 
 @media (max-width: 1180px) {
   .structure-layout {
     grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  .structure-left,
+  .structure-right,
+  .structure-center {
+    height: auto;
+    overflow: visible;
+  }
+
+  .structure-left {
+    grid-template-rows: none;
   }
 }
 </style>

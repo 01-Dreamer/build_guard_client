@@ -1,5 +1,4 @@
 import type { EChartsOption } from 'echarts'
-import { chartTimes } from './data'
 
 const axisLabel = {
   color: '#64748b',
@@ -13,8 +12,10 @@ export function lineOption(
   name = '实时数据',
   unit = ''
 ): EChartsOption {
+  const chartTimes = values.map((_, index) => String(index + 1))
+
   return {
-    grid: { left: 10, right: 12, top: 24, bottom: 8, containLabel: true },
+    grid: { left: 10, right: 22, top: 24, bottom: 18, containLabel: true },
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',

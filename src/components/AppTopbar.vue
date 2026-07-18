@@ -44,11 +44,17 @@ const monitorConfigMenuItems = [
   { label: '环境监测管理', path: '/monitor-config/environment' }
 ]
 
+const personnelMenuItems = [
+  { label: '人员信息', path: '/personnel/info' },
+  { label: '违规处理', path: '/personnel/violations' }
+]
+
 const isSiteActive = computed(() => route.path.startsWith('/site'))
 const isEquipmentActive = computed(() => route.path.startsWith('/equipment'))
 const isEnvironmentActive = computed(() => route.path.startsWith('/environment'))
 const isDeviceManagementActive = computed(() => route.path.startsWith('/device-management'))
 const isMonitorConfigActive = computed(() => route.path.startsWith('/monitor-config'))
+const isPersonnelActive = computed(() => route.path.startsWith('/personnel'))
 
 function goHome() {
   router.push('/')
@@ -71,6 +77,10 @@ function handleDeviceManagementCommand(path: string) {
 }
 
 function handleMonitorConfigCommand(path: string) {
+  router.push(path)
+}
+
+function handlePersonnelCommand(path: string) {
   router.push(path)
 }
 
@@ -221,6 +231,31 @@ function handleLogout() {
           </el-dropdown-menu>
         </template>
       </el-dropdown>
+      <el-dropdown
+        popper-class="site-nav-popper"
+        trigger="click"
+        @command="handlePersonnelCommand"
+      >
+        <button :class="{ active: isPersonnelActive }" class="nav-dropdown" type="button">
+          人员管理
+          <el-icon>
+            <ArrowDown />
+          </el-icon>
+        </button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item
+              v-for="item in personnelMenuItems"
+              :key="item.path"
+              :class="{ 'is-current': route.path === item.path }"
+              :command="item.path"
+              :title="item.label"
+            >
+              {{ item.label }}
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </nav>
 
     <div class="top-actions">
@@ -242,15 +277,16 @@ function handleLogout() {
 <style scoped>
 .app-topbar {
   display: grid;
-  grid-template-columns: 280px 1fr auto;
+  grid-template-columns: minmax(260px, 310px) minmax(0, 1fr) auto;
   gap: 18px;
   align-items: center;
-  height: 54px;
-  min-height: 54px;
-  padding: 0 22px;
+  height: 58px;
+  min-height: 58px;
+  padding: 0 24px;
   color: #e5edf7;
-  background: #314768;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+  background: linear-gradient(180deg, #2f4a70 0%, #253d5f 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 26px rgba(28, 45, 78, 0.2);
 }
 
 .system-brand {
@@ -267,11 +303,11 @@ function handleLogout() {
 }
 
 .system-brand img {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   object-fit: cover;
   background: #fff;
-  border-radius: 7px;
+  border-radius: 8px;
   box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.9);
 }
 
@@ -283,8 +319,8 @@ function handleLogout() {
 
 .system-brand strong {
   overflow: hidden;
-  font-size: 15px;
-  letter-spacing: 0.04em;
+  font-size: 16px;
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -301,29 +337,45 @@ function handleLogout() {
 
 .topnav {
   display: flex;
-  gap: 10px;
+  gap: 6px;
   align-items: center;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.topnav::-webkit-scrollbar {
+  display: none;
 }
 
 .topnav button {
   display: inline-flex;
-  gap: 4px;
+  gap: 5px;
+  flex: 0 0 auto;
   align-items: center;
-  height: 34px;
-  padding: 0 8px;
-  color: #e5edf7;
+  height: 36px;
+  padding: 0 11px;
+  color: rgba(229, 237, 247, 0.88);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.02);
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 8px;
 }
 
 .topnav button.active {
   color: #fff;
-  border-bottom-color: #fbbf24;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.topnav button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .topnav button:focus-visible,
@@ -403,6 +455,16 @@ function handleLogout() {
   display: flex;
   gap: 10px;
   align-items: center;
+  min-width: max-content;
+}
+
+.top-actions :deep(.el-button.is-text) {
+  color: rgba(229, 237, 247, 0.9);
+}
+
+.top-actions :deep(.el-button.is-text:hover) {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .user-menu {
@@ -417,13 +479,14 @@ function handleLogout() {
 
 .user-menu span {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  color: #314768;
+  color: #244b86;
   font-weight: 800;
-  background: linear-gradient(135deg, #f8fafc, #fbbf24);
+  background: #f8fafc;
   border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
 }
 
 @media (max-width: 920px) {
@@ -438,6 +501,7 @@ function handleLogout() {
 
 @media (max-width: 560px) {
   .app-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
     padding: 0 16px;
   }
 

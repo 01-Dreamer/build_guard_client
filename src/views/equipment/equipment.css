@@ -1,20 +1,22 @@
 .equipment-page {
   height: 100vh;
   overflow: hidden;
-  color: #334155;
-  background: #f3f6fa;
+  color: var(--text-main);
+  background:
+    linear-gradient(180deg, rgba(235, 242, 251, 0.86) 0%, rgba(244, 247, 251, 1) 34%),
+    var(--bg-page);
 }
 
 .equipment-content {
-  height: calc(100vh - 54px);
-  padding: 12px;
+  height: calc(100vh - 58px);
+  padding: 18px 20px;
   overflow: hidden;
 }
 
 .equipment-stack {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
+  gap: 14px;
   height: 100%;
   min-height: 0;
 }
@@ -24,7 +26,7 @@
   align-items: center;
   min-width: 0;
   height: 28px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 15px;
   font-weight: 800;
   line-height: 28px;
@@ -33,12 +35,12 @@
 .equipment-panel {
   min-width: 0;
   min-height: 0;
-  padding: 14px;
+  padding: 16px;
   overflow: hidden;
-  background: #fff;
-  border: 1px solid #edf1f6;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #dfe7f2;
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
 }
 
 .equipment-panel h2 {
@@ -46,7 +48,7 @@
   gap: 8px;
   align-items: center;
   margin: 0 0 12px;
-  color: #334155;
+  color: var(--text-strong);
   font-size: 16px;
   line-height: 1.2;
 }
@@ -58,9 +60,11 @@
 .equipment-filter {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px 16px;
+  gap: 14px 18px;
   align-items: flex-end;
-  padding: 18px 24px;
+  padding: 18px 22px;
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #dfe7f2;
 }
 
 .equipment-filter label {
@@ -68,7 +72,7 @@
   gap: 8px;
   width: 260px;
   max-width: 100%;
-  color: #334155;
+  color: var(--text-main);
   font-size: 13px;
   font-weight: 800;
 }
@@ -79,21 +83,23 @@
   min-width: 0;
   height: 38px;
   padding: 0 12px;
-  color: #334155;
+  color: var(--text-main);
   background: #fff;
-  border: 1px solid #d7dde6;
-  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
   outline: none;
 }
 
 .equipment-filter input:focus,
 .equipment-filter select:focus {
-  border-color: #3b82f6;
+  border-color: var(--brand);
 }
 
 .equipment-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .primary-btn,
@@ -101,23 +107,44 @@
   display: inline-flex;
   gap: 6px;
   align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  max-width: 100%;
   height: 38px;
   padding: 0 18px;
+  overflow: hidden;
   font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   cursor: pointer;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .primary-btn {
   color: #fff;
-  background: #3f6fed;
+  background: linear-gradient(180deg, #3475ee 0%, var(--brand) 100%);
+  border: 1px solid #2b63d4;
+  box-shadow: 0 8px 16px rgba(47, 111, 237, 0.18);
 }
 
 .plain-btn {
-  color: #334155;
-  background: #f8fafc;
-  border: 1px solid #d7dde6;
+  color: var(--text-main);
+  background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+  border: 1px solid var(--line-strong);
+}
+
+.primary-btn:hover,
+.plain-btn:hover {
+  box-shadow: 0 10px 20px rgba(28, 45, 78, 0.1);
+}
+
+.primary-btn:focus-visible,
+.plain-btn:focus-visible,
+.link-btn:focus-visible {
+  outline: 2px solid rgba(47, 111, 237, 0.22);
+  outline-offset: 2px;
 }
 
 .equipment-table {
@@ -128,32 +155,35 @@
 
 .equipment-table th,
 .equipment-table td {
+  min-width: 0;
   height: 54px;
-  padding: 0 16px;
+  padding: 10px 16px;
   overflow: hidden;
-  color: #475569;
+  color: var(--text-main);
   font-size: 14px;
   font-weight: 700;
+  line-height: 1.38;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  border-bottom: 1px solid #edf1f6;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
 }
 
 .equipment-table th {
   height: 44px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
-  background: #fbfdff;
+  line-height: 1.25;
+  white-space: nowrap;
+  background: #f7faff;
+}
+
+.equipment-table td {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .record-table-body {
-  overflow: hidden !important;
-  scrollbar-width: none;
-}
-
-.record-table-body::-webkit-scrollbar {
-  display: none;
+  overflow: auto !important;
 }
 
 .record-table-body .equipment-table th {
@@ -168,34 +198,82 @@
   background: #fafcff;
 }
 
+.equipment-table tbody tr:hover {
+  background: #f1f6ff;
+}
+
+.equipment-table .time-cell,
+.monitor-table .time-cell,
+.time-cell {
+  color: #2f3f58;
+  font-family: "DIN Alternate", "Roboto Mono", Consolas, monospace;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.equipment-table .multiline-time,
+.multiline-time {
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.col-time {
+  width: 184px;
+}
+
+.col-id,
+.col-index {
+  width: 72px;
+}
+
+.col-status {
+  width: 108px;
+}
+
+.col-action,
+.col-actions {
+  width: 132px;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  max-width: 100%;
   height: 24px;
   padding: 0 10px;
+  overflow: hidden;
   font-size: 12px;
   font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border-radius: 999px;
 }
 
 .status-pill.good {
-  color: #059669;
+  color: var(--success);
   background: #dcfce7;
 }
 
 .status-pill.warning {
-  color: #a16207;
+  color: var(--warning);
   background: #fef9c3;
 }
 
 .status-pill.danger {
-  color: #dc2626;
+  color: var(--danger);
   background: #fee2e2;
 }
 
 .link-btn {
-  color: #3f6fed;
+  color: var(--brand);
   font-weight: 900;
+  white-space: nowrap;
   cursor: pointer;
   background: transparent;
   border: 0;
@@ -208,9 +286,10 @@
   justify-content: flex-end;
   min-height: 58px;
   padding: 8px 22px 14px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 800;
+  border-top: 1px solid var(--line-soft);
 }
 
 .equipment-pagination .count {
@@ -220,17 +299,18 @@
 .equipment-pagination button {
   width: 28px;
   height: 28px;
-  color: #475569;
+  color: var(--text-main);
   font-weight: 900;
   cursor: pointer;
   background: #fff;
-  border: 0;
-  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
 }
 
 .equipment-pagination button.active {
   color: #fff;
-  background: #3f6fed;
+  background: var(--brand);
+  border-color: var(--brand);
 }
 
 .tab-list {
@@ -246,20 +326,20 @@
   align-items: center;
   height: 34px;
   padding: 0 16px;
-  color: #475569;
+  color: var(--text-main);
   font-size: 14px;
   font-weight: 900;
   text-decoration: none;
-  background: #f8fafc;
-  border: 1px solid #dbe3ee;
-  border-radius: 6px;
+  background: #f8fbff;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
 }
 
 .tab-list a.router-link-active,
 .tab-list a.active {
   color: #fff;
-  background: #3f6fed;
-  border-color: #3f6fed;
+  background: var(--brand);
+  border-color: var(--brand);
 }
 
 .live-dot {
@@ -281,15 +361,17 @@
   grid-template-columns: 38px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
+  min-width: 0;
   min-height: 72px;
   padding: 12px;
   background: #f8fbff;
   border: 1px solid #e6eefb;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .metric-tile .icon {
   display: grid;
+  flex: 0 0 auto;
   width: 38px;
   height: 38px;
   place-items: center;
@@ -301,23 +383,24 @@
 .metric-tile strong,
 .metric-card strong {
   display: block;
-  overflow: hidden;
-  color: #5b8cff;
-  font-size: 22px;
-  line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  color: var(--brand);
+  font-size: 21px;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .metric-tile span,
 .metric-card span {
   display: block;
-  overflow: hidden;
-  color: #64748b;
+  min-width: 0;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .info-grid {
@@ -360,7 +443,7 @@
 
 .info-item span {
   overflow: hidden;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 800;
   text-overflow: ellipsis;
@@ -369,7 +452,7 @@
 
 .info-item strong {
   overflow: hidden;
-  color: #334155;
+  color: var(--text-strong);
   font-size: 14px;
   font-weight: 900;
   text-overflow: ellipsis;

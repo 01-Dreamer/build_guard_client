@@ -1,23 +1,65 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { Bottom, DataLine, Odometer, Top, User, Warning } from '@element-plus/icons-vue'
+import { getElevatorDashboard, type EquipmentDashboard, type EquipmentInfoItem, type EquipmentMetric } from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
 import EquipmentChart from '../../components/equipment/EquipmentChart.vue'
-import { elevatorInfo } from './data'
-import { lineOption } from './chartOptions'
+import { formatDateTime } from '../../utils/format'
+import { alarmTrendOption, lineOption } from './chartOptions'
 
-const elevatorTabs = ['东区一号升降机', '基坑升降机#2']
-const statusCards = [
-  { label: '实时重量', value: '926.93KG', icon: Odometer },
-  { label: '实时高度', value: '55m', icon: Top },
-  { label: '实时速度', value: '27.87m/s', icon: DataLine },
-  { label: '实时倾斜度', value: '8.48度', icon: Warning },
-  { label: '实时人数', value: '5', icon: User }
-]
-const bottomMetrics = [
-  { value: '上升', label: '方向', icon: Top },
-  { value: '前门：关闭 后门：关闭', label: '门锁状态', icon: Bottom },
-  { value: '超重报警', label: '运行状态', icon: Warning, danger: true }
-]
+const dashboard = ref<EquipmentDashboard>({})
+const elevatorTabs = computed(() => (dashboard.value.devices || []).map((device) => device.name))
+const activeDevice = computed(() => dashboard.value.devices?.[0])
+const elevatorInfo = computed(() =>
+  (dashboard.value.info || []).map((item: EquipmentInfoItem) => ({
+    ...item,
+    value: String(item.value ?? '-'),
+    tone: 'blue' as const
+  }))
+)
+const statusIcons = [Odometer, Top, DataLine, Warning, User]
+const statusCards = computed(() =>
+  (dashboard.value.realtimeMetrics || []).slice(0, 5).map((metric: EquipmentMetric, index) => ({
+    label: metric.label,
+    value: `${metric.value ?? '-'}${metric.unit ?? ''}`,
+    icon: statusIcons[index % statusIcons.length]
+  }))
+)
+const bottomMetrics = computed(() =>
+  (dashboard.value.workMetrics || []).slice(0, 3).map((metric: EquipmentMetric, index) => ({
+    label: metric.label,
+    value: `${metric.value ?? '-'}${metric.unit ?? ''}`,
+    icon: [Top, Bottom, Warning][index],
+    danger: index === 2
+  }))
+)
+const alarmSummary = computed(() => ({
+  todayWarnings: dashboard.value.alarmSummary?.todayWarnings ?? 0,
+  totalWarnings: dashboard.value.alarmSummary?.totalWarnings ?? 0,
+  todayAlarms: dashboard.value.alarmSummary?.todayAlarms ?? 0,
+  totalAlarms: dashboard.value.alarmSummary?.totalAlarms ?? 0
+}))
+const speedSeries = computed(() => (dashboard.value.telemetry || []).map((item) => Number(item.speed) || 0))
+const loadSeries = computed(() => (dashboard.value.telemetry || []).map((item) => Number(item.loadWeight) || 0))
+const heightSeries = computed(() => (dashboard.value.telemetry || []).map((item) => Number(item.height) || 0))
+const reportedAt = computed(() => formatDateTime(dashboard.value.telemetry?.at(-1)?.time))
+const reportedAtParts = computed(() => splitDateTime(dashboard.value.telemetry?.at(-1)?.time))
+
+function splitDateTime(value?: string | number | Date | null) {
+  const formatted = formatDateTime(value)
+  const [date = formatted, time = ''] = formatted.split(' ')
+  return { date, time }
+}
+
+async function loadElevatorDashboard() {
+  try {
+    dashboard.value = await getElevatorDashboard()
+  } catch {
+    dashboard.value = {}
+  }
+}
+
+onMounted(loadElevatorDashboard)
 </script>
 
 <template>
@@ -39,19 +81,21 @@ const bottomMetrics = [
               </h2>
               <div class="alarm-counts">
                 <article>
-                  <strong>0</strong>
+                  <strong>{{ alarmSummary.todayWarnings }}</strong>
                   <span>当日预警</span>
-                  <b>17</b>
+                  <b>{{ alarmSummary.totalWarnings }}</b>
                   <em>累计预警</em>
                 </article>
                 <article class="red">
-                  <strong>0</strong>
+                  <strong>{{ alarmSummary.todayAlarms }}</strong>
                   <span>当日报警</span>
-                  <b>2</b>
+                  <b>{{ alarmSummary.totalAlarms }}</b>
                   <em>累计报警</em>
                 </article>
               </div>
             </section>
+
+            <EquipmentChart title="报警趋势" :option="alarmTrendOption()" />
 
             <section class="equipment-panel">
               <h2>设备信息</h2>
@@ -72,21 +116,25 @@ const bottomMetrics = [
 
           <section class="equipment-panel elevator-main">
             <nav class="tab-list">
-              <RouterLink
+              <button
                 v-for="tab in elevatorTabs"
                 :key="tab"
-                to="/equipment/elevator"
-                :class="{ active: tab === '东区一号升降机' }"
+                type="button"
+                :class="{ active: tab === activeDevice?.name }"
               >
                 {{ tab }}
                 <span class="live-dot" />
-              </RouterLink>
+              </button>
+              <button v-if="!elevatorTabs.length" type="button" class="active">暂无设备</button>
             </nav>
 
             <div class="elevator-scene">
               <div class="device-meta">
-                <span>设备编号 <strong>TJ-019</strong></span>
-                <span>数据获取时间 <strong>2025-11-27 15:33:51</strong></span>
+                <span>设备编号 <strong>{{ activeDevice?.code || '-' }}</strong></span>
+                <span class="data-time" :title="reportedAt">
+                  数据获取时间
+                  <strong>{{ reportedAtParts.date }}<b v-if="reportedAtParts.time"> {{ reportedAtParts.time }}</b></strong>
+                </span>
               </div>
 
               <div class="status-column left">
@@ -137,9 +185,9 @@ const bottomMetrics = [
           </section>
 
           <aside class="machine-right">
-            <EquipmentChart title="实时速度" :option="lineOption('#60a5fa', [25.4, 24.6, 26.6, 29.1, 23.9, 28.8, 27.9], '速度', 'm/s')" />
-            <EquipmentChart title="实时载重" :option="lineOption('#22c55e', [930, 805, 925, 924, 924, 835, 919], '载重', 'KG')" />
-            <EquipmentChart title="实时高度" :option="lineOption('#f59e0b', [52, 56, 53, 52, 50, 63, 55], '高度', 'm')" />
+            <EquipmentChart title="实时速度" :option="lineOption('#60a5fa', speedSeries, '速度', 'm/s')" />
+            <EquipmentChart title="实时载重" :option="lineOption('#22c55e', loadSeries, '载重', 'KG')" />
+            <EquipmentChart title="实时高度" :option="lineOption('#f59e0b', heightSeries, '高度', 'm')" />
           </aside>
         </section>
       </div>
@@ -150,9 +198,30 @@ const bottomMetrics = [
 <style scoped>
 .elevator-layout {
   display: grid;
-  grid-template-columns: 300px minmax(560px, 1fr) 330px;
-  gap: 12px;
+  grid-template-columns: 300px minmax(0, 1fr) 330px;
+  gap: 14px;
   min-height: 0;
+}
+
+.tab-list button {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  height: 34px;
+  padding: 0 16px;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  background: #f8fafc;
+  border: 1px solid #dbe3ee;
+  border-radius: 6px;
+}
+
+.tab-list button.active {
+  color: #fff;
+  background: #3f6fed;
+  border-color: #3f6fed;
 }
 
 .machine-left,
@@ -161,6 +230,11 @@ const bottomMetrics = [
   align-content: start;
   gap: 12px;
   min-height: 0;
+}
+
+.machine-right {
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  align-content: stretch;
 }
 
 .alarm-counts {
@@ -198,48 +272,63 @@ const bottomMetrics = [
 
 .elevator-main {
   display: grid;
-  grid-template-rows: auto minmax(440px, 1fr) auto;
+  grid-template-rows: auto minmax(300px, 1fr) auto;
   gap: 12px;
 }
 
 .elevator-scene {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 230px minmax(220px, 1fr);
-  gap: 26px;
+  grid-template-columns: minmax(150px, 1fr) 170px minmax(150px, 1fr);
+  gap: 14px;
   align-items: center;
   min-height: 0;
-  padding: 44px 30px 26px;
+  overflow: hidden;
+  padding: 42px 20px 20px;
   background: linear-gradient(180deg, #fbfdff, #f7faff);
+  border: 1px solid #e6eefb;
   border-radius: 8px;
 }
 
 .device-meta {
   position: absolute;
-  top: 18px;
+  top: 16px;
   left: 24px;
   display: flex;
-  gap: 34px;
+  right: 24px;
+  flex-wrap: wrap;
+  gap: 8px 26px;
   color: #64748b;
   font-weight: 900;
 }
 
 .device-meta strong {
+  display: inline-block;
   color: #6d95ff;
+}
+
+.device-meta .data-time strong {
+  color: #6d95ff;
+  font-family: "DIN Alternate", "Roboto Mono", Consolas, monospace;
+  letter-spacing: 0;
+}
+
+.device-meta .data-time b {
+  color: #2f3f58;
 }
 
 .status-column {
   display: grid;
-  gap: 34px;
+  gap: 18px;
 }
 
 .sensor-card {
   display: grid;
-  grid-template-columns: 48px 1fr;
-  gap: 4px 12px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 4px 10px;
   align-items: center;
-  min-height: 100px;
-  padding: 18px;
+  min-height: 86px;
+  padding: 14px;
   background: #fff;
   border: 1px solid #e6eefb;
   border-radius: 8px;
@@ -249,36 +338,42 @@ const bottomMetrics = [
 .sensor-card .el-icon {
   grid-row: 1 / 3;
   display: grid;
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   place-items: center;
   color: #60a5fa;
-  font-size: 26px;
+  font-size: 22px;
   background: #eaf2ff;
   border-radius: 50%;
 }
 
 .sensor-card span {
+  overflow: hidden;
   color: #64748b;
   font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sensor-card strong {
+  overflow: hidden;
   color: #6d95ff;
-  font-size: 20px;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .elevator-shaft {
   position: relative;
-  height: 390px;
+  height: 330px;
 }
 
 .shaft-rail {
   position: absolute;
   left: 50%;
   bottom: 12px;
-  width: 42px;
-  height: 338px;
+  width: 38px;
+  height: 286px;
   background:
     repeating-linear-gradient(45deg, transparent 0 16px, rgba(255, 255, 255, 0.94) 16px 20px),
     #7db0ff;
@@ -288,8 +383,8 @@ const bottomMetrics = [
 
 .shaft-rail::before {
   position: absolute;
-  left: -42px;
-  right: -42px;
+  left: -36px;
+  right: -36px;
   bottom: -8px;
   height: 8px;
   content: "";
@@ -306,23 +401,32 @@ const bottomMetrics = [
 }
 
 .cab {
-  right: 42px;
-  top: 178px;
-  width: 58px;
-  height: 76px;
+  right: 24px;
+  top: 154px;
+  width: 52px;
+  height: 68px;
 }
 
 .counterweight {
-  left: 42px;
-  top: 86px;
-  width: 52px;
-  height: 72px;
+  left: 24px;
+  top: 76px;
+  width: 48px;
+  height: 64px;
 }
 
 .bottom-status {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 10px;
+}
+
+.bottom-status .metric-tile {
+  min-height: 56px;
+  padding: 8px 12px;
+}
+
+.bottom-status .metric-tile strong {
+  font-size: 18px;
 }
 
 .metric-tile.danger strong {

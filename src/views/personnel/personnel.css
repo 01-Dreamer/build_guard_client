@@ -1,0 +1,131 @@
+.personnel-stack {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+  padding: 4px 16px 24px;
+}
+
+.personnel-filter {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+  min-height: 92px;
+  padding: 18px 24px;
+}
+
+.personnel-filter label {
+  display: grid;
+  gap: 8px;
+  width: 320px;
+  max-width: 100%;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.personnel-filter input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #d7dde6;
+  border-radius: 6px;
+  outline: none;
+}
+
+.personnel-filter input:focus {
+  border-color: #3b82f6;
+}
+
+.personnel-filter select,
+.personnel-dialog-form select {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #d7dde6;
+  border-radius: 6px;
+  outline: none;
+}
+
+.filter-spacer {
+  flex: 1;
+}
+
+.personnel-table-card {
+  padding: 0;
+}
+
+.personnel-table th,
+.personnel-table td {
+  height: 58px;
+}
+
+.col-id {
+  width: 90px;
+}
+
+.col-avatar,
+.col-status,
+.col-actions {
+  width: 160px;
+}
+
+.person-avatar {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 900;
+  border-radius: 50%;
+}
+
+.personnel-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.danger-link {
+  color: #ef4444;
+}
+
+.personnel-dialog-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.personnel-dialog-form label {
+  display: grid;
+  gap: 8px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.personnel-dialog-form input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  color: #334155;
+  background: #fff;
+  border: 1px solid #d7dde6;
+  border-radius: 6px;
+  outline: none;
+}
+
+.personnel-dialog-form input:focus,
+.personnel-dialog-form select:focus {
+  border-color: #3b82f6;
+}
+
+.wide-dialog-field {
+  grid-column: 1 / -1;
+}

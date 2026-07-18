@@ -8,14 +8,26 @@ const axisLabel = {
 
 const dayLabels = ['12时', '15时', '18时', '21时', '00时', '03时', '06时', '09时']
 
-export function airQualityLineOption(): EChartsOption {
+export interface TrendPoint {
+  time: string
+  pm25?: number | null
+  pm10?: number | null
+  noise?: number | null
+  temperature?: number | null
+  minTemperature?: number | null
+  maxTemperature?: number | null
+  aqi?: number | null
+}
+
+export function airQualityLineOption(points: TrendPoint[] = []): EChartsOption {
+  const labels = points.map((point) => point.time)
   return {
     grid: { left: 16, right: 18, top: 28, bottom: 26, containLabel: true },
     legend: { bottom: 0, itemWidth: 10, itemHeight: 10, textStyle: axisLabel },
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
-      data: dayLabels,
+      data: labels,
       boundaryGap: false,
       axisTick: { show: false },
       axisLine: { lineStyle: { color: '#e5e7eb' } },
@@ -33,7 +45,7 @@ export function airQualityLineOption(): EChartsOption {
         name: 'PM2.5',
         type: 'line',
         smooth: true,
-        data: [20, 20, 2, 1, 1, 1, 1, 22],
+        data: points.map((point) => point.pm25 ?? 0),
         lineStyle: { width: 3, color: '#22c55e' },
         itemStyle: { color: '#22c55e' }
       },
@@ -41,7 +53,7 @@ export function airQualityLineOption(): EChartsOption {
         name: 'PM10',
         type: 'line',
         smooth: true,
-        data: [24, 158, 2, 0, 0, 0, 0, 24],
+        data: points.map((point) => point.pm10 ?? 0),
         lineStyle: { width: 3, color: '#5b8cff' },
         itemStyle: { color: '#5b8cff' },
         areaStyle: { color: '#5b8cff22' }
@@ -50,13 +62,14 @@ export function airQualityLineOption(): EChartsOption {
   }
 }
 
-export function noiseLineOption(): EChartsOption {
+export function noiseLineOption(points: TrendPoint[] = []): EChartsOption {
+  const labels = points.map((point) => point.time)
   return {
     grid: { left: 16, right: 18, top: 28, bottom: 8, containLabel: true },
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
-      data: dayLabels,
+      data: labels,
       boundaryGap: false,
       axisTick: { show: false },
       axisLine: { lineStyle: { color: '#e5e7eb' } },
@@ -73,7 +86,7 @@ export function noiseLineOption(): EChartsOption {
       {
         type: 'line',
         smooth: true,
-        data: [22, 61, 4, 1, 1, 1, 1, 21],
+        data: points.map((point) => point.noise ?? 0),
         lineStyle: { width: 3, color: '#5b8cff' },
         itemStyle: { color: '#5b8cff' },
         areaStyle: { color: '#5b8cff22' }
@@ -82,14 +95,15 @@ export function noiseLineOption(): EChartsOption {
   }
 }
 
-export function temperatureLineOption(): EChartsOption {
+export function temperatureLineOption(points: TrendPoint[] = []): EChartsOption {
+  const labels = points.map((point) => point.time)
   return {
     grid: { left: 16, right: 18, top: 28, bottom: 26, containLabel: true },
     legend: { bottom: 0, itemWidth: 10, itemHeight: 10, textStyle: axisLabel },
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
-      data: ['09-19', '09-21', '09-23', '09-24', '09-26', '09-28', '09-30'],
+      data: labels,
       axisTick: { show: false },
       axisLine: { lineStyle: { color: '#e5e7eb' } },
       axisLabel
@@ -106,7 +120,7 @@ export function temperatureLineOption(): EChartsOption {
         name: '最高气温',
         type: 'line',
         smooth: true,
-        data: [0, 0, 0, 36, 30, 30, 8],
+        data: points.map((point) => point.maxTemperature ?? point.temperature ?? 0),
         lineStyle: { width: 3, color: '#f59e0b' },
         itemStyle: { color: '#f59e0b' }
       },
@@ -114,7 +128,7 @@ export function temperatureLineOption(): EChartsOption {
         name: '最低气温',
         type: 'line',
         smooth: true,
-        data: [0, 0, 0, -9, 14, 14, 7],
+        data: points.map((point) => point.minTemperature ?? point.temperature ?? 0),
         lineStyle: { width: 3, color: '#5b8cff' },
         itemStyle: { color: '#5b8cff' }
       }
@@ -122,7 +136,7 @@ export function temperatureLineOption(): EChartsOption {
   }
 }
 
-export function qualityRingOption(): EChartsOption {
+export function qualityRingOption(data: Array<{ name: string; value: number }> = []): EChartsOption {
   return {
     legend: { bottom: 0, itemWidth: 10, itemHeight: 10, textStyle: axisLabel },
     tooltip: { trigger: 'item' },
@@ -131,13 +145,10 @@ export function qualityRingOption(): EChartsOption {
         type: 'pie',
         radius: ['48%', '68%'],
         center: ['50%', '44%'],
-        data: [
-          { name: '优', value: 16, itemStyle: { color: '#34d399' } },
-          { name: '良', value: 42, itemStyle: { color: '#3b82f6' } },
-          { name: '轻度污染', value: 18, itemStyle: { color: '#5b8cff' } },
-          { name: '中度污染', value: 7, itemStyle: { color: '#f59e0b' } },
-          { name: '重度污染', value: 6, itemStyle: { color: '#ef4444' } }
-        ],
+        data: data.map((item, index) => ({
+          ...item,
+          itemStyle: { color: ['#34d399', '#3b82f6', '#5b8cff', '#f59e0b', '#ef4444'][index % 5] }
+        })),
         label: { show: false }
       }
     ]
@@ -185,12 +196,12 @@ export function airGaugeOption(name: string, value: number, max: number): EChart
   }
 }
 
-export function sevenDayBarOption(): EChartsOption {
+export function sevenDayBarOption(points: TrendPoint[] = []): EChartsOption {
   return {
     grid: { left: 16, right: 18, top: 28, bottom: 36, containLabel: true },
     xAxis: {
       type: 'category',
-      data: ['09-23', '09-24', '09-25', '09-26', '09-28', '09-29', '09-30'],
+      data: points.map((point) => point.time),
       axisTick: { show: false },
       axisLine: { lineStyle: { color: '#e5e7eb' } },
       axisLabel
@@ -206,7 +217,7 @@ export function sevenDayBarOption(): EChartsOption {
       {
         type: 'bar',
         barWidth: 30,
-        data: [0, 22, 104, 91, 22, 62, 46].map((value, index) => ({
+        data: points.map((point) => point.aqi ?? 0).map((value, index) => ({
           value,
           itemStyle: {
             color: ['#34d399', '#34d399', '#f59e0b', '#3b82f6', '#34d399', '#3b82f6', '#34d399'][index]

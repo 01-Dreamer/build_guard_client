@@ -1,9 +1,26 @@
 :root {
+  --bg-page: #f4f7fb;
+  --bg-panel: #fff;
+  --bg-subtle: #f8fbff;
+  --text-strong: #223047;
+  --text-main: #334155;
+  --text-muted: #6b7c93;
+  --line-soft: #e4ebf4;
+  --line-strong: #d6e0ec;
+  --brand: #2f6fed;
+  --brand-deep: #244b86;
+  --brand-hover: #255fce;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --shadow-panel: 0 14px 34px rgba(28, 45, 78, 0.07);
+  --shadow-panel-hover: 0 18px 42px rgba(28, 45, 78, 0.1);
+  --radius-panel: 10px;
   font-family:
     Inter, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial,
     sans-serif;
   color: #1f2933;
-  background: #0e1218;
+  background: var(--bg-page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -52,6 +69,84 @@ body,
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+}
+
+button {
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+input,
+select,
+textarea {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.12);
+}
+
+.el-dialog {
+  border-radius: var(--radius-panel);
+}
+
+.el-message-box {
+  border-radius: var(--radius-panel);
+}
+
+.el-button {
+  font-weight: 750;
+  border-radius: 8px;
+}
+
+.el-button--primary {
+  --el-button-bg-color: var(--brand);
+  --el-button-border-color: var(--brand);
+  --el-button-hover-bg-color: var(--brand-hover);
+  --el-button-hover-border-color: var(--brand-hover);
+}
+
+.el-table {
+  --el-table-border-color: var(--line-soft);
+  --el-table-header-bg-color: #f7faff;
+  --el-table-header-text-color: var(--text-muted);
+  --el-table-row-hover-bg-color: #f1f6ff;
+  color: var(--text-main);
+  font-size: 14px;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 850;
+}
+
+.el-table .cell {
+  line-height: 1.42;
+  word-break: break-word;
+}
+
+.time-cell {
+  color: #2f3f58;
+  font-family: "DIN Alternate", "Roboto Mono", Consolas, monospace;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  font-weight: 850;
+  letter-spacing: 0;
 }

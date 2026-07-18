@@ -6,9 +6,10 @@ import {
   ArrowRight,
   Key,
   Lock,
-  Message,
+  User,
   Refresh
 } from '@element-plus/icons-vue'
+import { loginApi } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 import logoUrl from '../assets/logo.ico'
 
@@ -20,21 +21,20 @@ const loading = ref(false)
 const captcha = ref(createCaptcha())
 
 interface LoginForm {
-  email: string
+  username: string
   password: string
   captcha: string
 }
 
 const loginForm = reactive<LoginForm>({
-  email: '',
+  username: '',
   password: '',
   captcha: ''
 })
 
 const rules: FormRules<LoginForm> = {
-  email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '邮箱格式不正确', trigger: ['blur', 'change'] }
+  username: [
+    { required: true, message: '请输入账号', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -76,20 +76,31 @@ async function handleLogin() {
   if (!valid) return
 
   loading.value = true
-  window.setTimeout(() => {
+  try {
+    const result = await loginApi({
+      username: loginForm.username,
+      password: loginForm.password
+    })
+
     authStore.login({
-      token: `mock-token-${Date.now()}`,
+      token: result.token,
       user: {
-        email: loginForm.email,
-        name: '安全监管员'
+        adminId: result.adminId,
+        username: result.username,
+        email: result.email,
+        name: result.realName || result.username || '安全监管员'
       }
     })
-    loading.value = false
     ElMessage.success('登录成功')
 
     const redirect = route.query.redirect
     router.replace(typeof redirect === 'string' ? redirect : '/')
-  }, 700)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '登录失败，请稍后重试')
+    refreshCaptcha()
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -139,11 +150,11 @@ async function handleLogin() {
           size="large"
           @keyup.enter="handleLogin"
         >
-          <el-form-item prop="email">
-            <el-input v-model="loginForm.email" placeholder="请输入邮箱" clearable>
+          <el-form-item prop="username">
+            <el-input v-model="loginForm.username" placeholder="请输入管理员账号" clearable>
               <template #prefix>
                 <el-icon>
-                  <Message />
+                  <User />
                 </el-icon>
               </template>
             </el-input>

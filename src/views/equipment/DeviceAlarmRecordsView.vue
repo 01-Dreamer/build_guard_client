@@ -1,14 +1,85 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { handleAlarm } from '../../api/alarms'
+import { listDeviceAlarmRecords, type AlarmRecordView } from '../../api/devices'
 import AppTopbar from '../../components/AppTopbar.vue'
-import { fillPageRows, useResponsivePageSize } from '../../composables/useResponsivePageSize'
-import { alarmRecords, statusClass } from './data'
+import { useResponsivePageSize } from '../../composables/useResponsivePageSize'
+import { formatDateTime } from '../../utils/format'
+import { statusClass } from './data'
 
-const totalRecords = 166
 const { pageSize } = useResponsivePageSize()
-const visibleRecords = computed(() => fillPageRows(alarmRecords, pageSize.value, totalRecords))
-const totalPages = computed(() => Math.ceil(totalRecords / pageSize.value))
+const currentPage = ref(1)
+const totalRecords = ref(0)
+const records = ref<AlarmRecordView[]>([])
+const filters = reactive({
+  alarmType: '',
+  deviceName: '',
+  status: '',
+  startTime: '',
+  endTime: ''
+})
+const totalPages = computed(() => Math.max(1, Math.ceil(totalRecords.value / pageSize.value)))
+
+function statusText(status?: number | string | null) {
+  if (status === 2 || status === '已处理' || status === 'handled') return '已处理'
+  if (status === 1 || status === '处理中' || status === 'processing') return '处理中'
+  return '未处理'
+}
+
+async function loadRecords() {
+  try {
+    const result = await listDeviceAlarmRecords({
+      ...filters,
+      page: currentPage.value,
+      pageSize: pageSize.value
+    })
+    records.value = result.records
+    totalRecords.value = result.total
+  } catch {
+    records.value = []
+    totalRecords.value = 0
+  }
+}
+
+function searchRecords() {
+  currentPage.value = 1
+  loadRecords()
+}
+
+function resetFilters() {
+  filters.alarmType = ''
+  filters.deviceName = ''
+  filters.status = ''
+  filters.startTime = ''
+  filters.endTime = ''
+  searchRecords()
+}
+
+async function handleRecord(record: AlarmRecordView) {
+  if (statusText(record.status) === '已处理') {
+    ElMessage.info('该报警已处理')
+    return
+  }
+
+  try {
+    const { value } = await ElMessageBox.prompt('请输入报警处理内容', '报警处理', {
+      confirmButtonText: '确认处理',
+      cancelButtonText: '取消',
+      inputPattern: /\S+/,
+      inputErrorMessage: '处理内容不能为空'
+    })
+    await handleAlarm(record.id, { handleBy: '系统管理员', handleContent: value })
+    ElMessage.success('报警已处理')
+    loadRecords()
+  } catch {
+    return
+  }
+}
+
+watch(pageSize, searchRecords)
+onMounted(loadRecords)
 </script>
 
 <template>
@@ -22,8 +93,8 @@ const totalPages = computed(() => Math.ceil(totalRecords / pageSize.value))
         <section class="equipment-panel equipment-filter alarm-filter">
           <label>
             <span>报警类型</span>
-            <select>
-              <option>请选择报警类型</option>
+            <select v-model="filters.alarmType">
+              <option value="">请选择报警类型</option>
               <option>基坑监测报警</option>
               <option>高支模监测报警</option>
               <option>塔吊报警</option>
@@ -32,33 +103,33 @@ const totalPages = computed(() => Math.ceil(totalRecords / pageSize.value))
           </label>
           <label>
             <span>报警时间</span>
-            <input type="date" />
+            <input v-model="filters.startTime" type="date" />
           </label>
           <label>
             <span>结束时间</span>
-            <input type="date" />
+            <input v-model="filters.endTime" type="date" />
           </label>
           <label>
             <span>设备名称</span>
-            <input placeholder="请输入设备名称" />
+            <input v-model="filters.deviceName" placeholder="请输入设备名称" />
           </label>
           <label>
             <span>处理状态</span>
-            <select>
-              <option>请选择处理状态</option>
-              <option>未处理</option>
-              <option>处理中</option>
-              <option>已处理</option>
+            <select v-model="filters.status">
+              <option value="">请选择处理状态</option>
+              <option value="0">未处理</option>
+              <option value="1">处理中</option>
+              <option value="2">已处理</option>
             </select>
           </label>
           <div class="equipment-actions">
-            <button class="primary-btn" type="button">
+            <button class="primary-btn" type="button" @click="searchRecords">
               <el-icon>
                 <Search />
               </el-icon>
               搜索
             </button>
-            <button class="plain-btn" type="button">
+            <button class="plain-btn" type="button" @click="resetFilters">
               <el-icon>
                 <Refresh />
               </el-icon>
@@ -99,24 +170,29 @@ const totalPages = computed(() => Math.ceil(totalRecords / pageSize.value))
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="record in visibleRecords" :key="record.id">
+                <tr v-for="record in records" :key="record.id">
                   <td>{{ record.id }}</td>
-                  <td :title="record.name">{{ record.name }}</td>
-                  <td>{{ record.type }}</td>
-                  <td :title="record.content">{{ record.content }}</td>
-                  <td>{{ record.value }}</td>
-                  <td>{{ record.unit }}</td>
-                  <td>{{ record.upper }}</td>
-                  <td>{{ record.lower }}</td>
-                  <td>{{ record.time }}</td>
+                  <td :title="record.deviceName || '-'">{{ record.deviceName || '-' }}</td>
+                  <td>{{ record.alarmType || '-' }}</td>
+                  <td :title="record.content || '-'">{{ record.content || '-' }}</td>
+                  <td>{{ record.alarmValue ?? '-' }}</td>
+                  <td>{{ record.unit || '-' }}</td>
+                  <td>{{ record.alarmUpper ?? record.warnUpper ?? '-' }}</td>
+                  <td>{{ record.alarmLower ?? record.warnLower ?? '-' }}</td>
+                  <td class="time-cell" :title="formatDateTime(record.occurredAt)">
+                    {{ formatDateTime(record.occurredAt) }}
+                  </td>
                   <td>
-                    <span class="status-pill" :class="statusClass(record.status)">
-                      {{ record.status }}
+                    <span class="status-pill" :class="statusClass(statusText(record.status))">
+                      {{ statusText(record.status) }}
                     </span>
                   </td>
                   <td>
-                    <button class="link-btn" type="button">处理</button>
+                    <button class="link-btn" type="button" @click="handleRecord(record)">处理</button>
                   </td>
+                </tr>
+                <tr v-if="!records.length">
+                  <td colspan="11">暂无报警记录</td>
                 </tr>
               </tbody>
             </table>
@@ -125,9 +201,6 @@ const totalPages = computed(() => Math.ceil(totalRecords / pageSize.value))
           <footer class="equipment-pagination">
             <span class="count">共{{ totalRecords }}条　{{ pageSize }}条/页</span>
             <button class="active" type="button">1</button>
-            <button type="button">2</button>
-            <button type="button">3</button>
-            <button type="button">...</button>
             <button type="button">{{ totalPages }}</button>
             <button type="button">›</button>
           </footer>
@@ -148,7 +221,7 @@ const totalPages = computed(() => Math.ceil(totalRecords / pageSize.value))
 }
 
 .alarm-filter label {
-  width: 230px;
+  width: 220px;
 }
 
 .table-panel {
@@ -162,28 +235,48 @@ const totalPages = computed(() => Math.ceil(totalRecords / pageSize.value))
   overflow: auto;
 }
 
+.alarm-table {
+  min-width: 1320px;
+}
+
 .col-index {
-  width: 6%;
+  width: 72px;
 }
 
 .col-device {
-  width: 12%;
-}
-
-.col-type,
-.col-value,
-.col-unit,
-.col-limit,
-.col-status,
-.col-action {
-  width: 8%;
+  width: 150px;
 }
 
 .col-content {
-  width: 18%;
+  width: 260px;
 }
 
 .col-time {
-  width: 14%;
+  width: 172px;
+}
+
+.col-type {
+  width: 150px;
+}
+
+.col-value,
+.col-limit {
+  width: 112px;
+}
+
+.col-unit {
+  width: 80px;
+}
+
+.col-status {
+  width: 116px;
+}
+
+.col-action {
+  width: 108px;
+}
+
+.time-cell {
+  font-size: 13px;
 }
 </style>

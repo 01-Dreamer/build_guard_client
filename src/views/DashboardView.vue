@@ -18,11 +18,15 @@ import {
   WindPower
 } from '@element-plus/icons-vue'
 import AppTopbar from '../components/AppTopbar.vue'
+import { getDashboardOverview, type DashboardAlarm, type DashboardDeviceSummary, type DashboardMetric, type DashboardSprayLog } from '../api/dashboard'
 import heroUrl from '../assets/dashboard-hero.png'
+import { formatDateTime } from '../utils/format'
 
 interface MetricCard {
   label: string
   value: string
+  numericValue: string
+  unit: string
   icon: Component
   tone: 'blue' | 'purple' | 'green' | 'yellow' | 'red' | 'orange'
 }
@@ -55,40 +59,32 @@ const riskChartRef = ref<HTMLDivElement>()
 let riskChart: echarts.ECharts | null = null
 let resizeObserver: ResizeObserver | null = null
 
-const environmentMetrics: MetricCard[] = [
-  { label: '温度', value: '13.07°C', icon: MostlyCloudy, tone: 'blue' },
-  { label: '湿度', value: '29.07%', icon: Cloudy, tone: 'purple' },
-  { label: '风力', value: '0.55级', icon: WindPower, tone: 'green' },
-  { label: '噪音', value: '70.4dB', icon: Odometer, tone: 'yellow' },
-  { label: 'PM2.5', value: '23.84μg/m³', icon: Warning, tone: 'red' },
-  { label: 'PM10', value: '3.65μg/m³', icon: Sunny, tone: 'orange' }
-]
+const metricIconMap: Record<string, Component> = {
+  温度: MostlyCloudy,
+  湿度: Cloudy,
+  风力: WindPower,
+  风速: WindPower,
+  噪音: Odometer,
+  PM25: Warning,
+  'PM2.5': Warning,
+  PM10: Sunny
+}
+const metricTones: MetricCard['tone'][] = ['blue', 'purple', 'green', 'yellow', 'red', 'orange']
+const deviceIconMap: Record<string, Component> = {
+  塔机: Tools,
+  塔吊: Tools,
+  升降机: ArrowDown,
+  高支模: OfficeBuilding,
+  深基坑: Location
+}
+const deviceTones = ['#f59e0b', '#fbbf24', '#22c55e', '#38bdf8', '#3f6fed']
 
-const riskLabels = ['AI检测预警', '环境检测预警', '吸烟', '大风超载', '烟雾', '深基坑监测', '设备离线']
-const riskValues = [17, 14, 14, 12, 10, 10, 6]
-
-const sprayLogs: SprayLog[] = [
-  { content: '青棠高速以东改造项目 pm2.5污染检测 环境监测传感器#12', mode: '自动模式', time: '15:20:38' },
-  { content: '青棠高速以东改造项目 pm10超标检测 环境监测传感器#08', mode: '自动模式', time: '15:20:37' },
-  { content: '青棠高速以东改造项目 扬尘超限 喷淋联动任务', mode: '自动模式', time: '15:20:33' },
-  { content: '基坑2区周边道路降尘任务执行完成', mode: '定时模式', time: '15:20:32' }
-]
-
-const deviceSummaries: DeviceSummary[] = [
-  { name: '塔机', total: 3, online: 3, alarms: 0, icon: Tools, tone: '#f59e0b' },
-  { name: '升降机', total: 2, online: 0, alarms: 0, icon: ArrowDown, tone: '#fbbf24' },
-  { name: '高支模', total: 2, online: 1, alarms: 25, icon: OfficeBuilding, tone: '#22c55e' },
-  { name: '深基坑', total: 2, online: 1, alarms: 22, icon: Location, tone: '#38bdf8' }
-]
-
-const alarmRecords: AlarmRecord[] = [
-  { content: 'AI检测预警', location: '基坑2区', time: '2025-11-12 17:08:36', level: '中危', status: '未处理' },
-  { content: 'AI检测预警', location: '基坑2区', time: '2025-11-12 17:08:30', level: '中危', status: '未处理' },
-  { content: 'AI检测预警', location: '基坑2区', time: '2025-11-12 17:08:24', level: '中危', status: '未处理' },
-  { content: '塔吊力矩异常', location: '塔吊1号', time: '2025-11-12 17:08:18', level: '高危', status: '处理中' },
-  { content: '环境噪音超标', location: '生活区东侧', time: '2025-11-12 17:08:06', level: '中危', status: '未处理' },
-  { content: '深基坑位移预警', location: '基坑2区', time: '2025-11-12 17:07:57', level: '中危', status: '未处理' }
-]
+const environmentMetrics = ref<MetricCard[]>([])
+const riskLabels = ref<string[]>([])
+const riskValues = ref<number[]>([])
+const sprayLogs = ref<SprayLog[]>([])
+const deviceSummaries = ref<DeviceSummary[]>([])
+const alarmRecords = ref<AlarmRecord[]>([])
 
 function formatRiskLabel(value: string) {
   const labelMap: Record<string, string> = {
@@ -106,6 +102,15 @@ function initRiskChart() {
   if (!riskChartRef.value) return
 
   riskChart = echarts.init(riskChartRef.value)
+  updateRiskChart()
+
+  resizeObserver = new ResizeObserver(() => riskChart?.resize())
+  resizeObserver.observe(riskChartRef.value)
+}
+
+function updateRiskChart() {
+  if (!riskChart) return
+
   riskChart.setOption({
     grid: {
       left: 6,
@@ -119,7 +124,7 @@ function initRiskChart() {
     },
     xAxis: {
       type: 'category',
-      data: riskLabels,
+      data: riskLabels.value,
       axisTick: { show: false },
       axisLine: { lineStyle: { color: '#e5e7eb' } },
       axisLabel: {
@@ -144,7 +149,7 @@ function initRiskChart() {
       {
         type: 'bar',
         barWidth: 24,
-        data: riskValues.map((value, index) => ({
+        data: riskValues.value.map((value, index) => ({
           value,
           itemStyle: {
             color: ['#ef4444', '#f97316', '#eab308', '#dc2626', '#a855f7', '#22c55e', '#3b82f6'][index]
@@ -161,13 +166,83 @@ function initRiskChart() {
       }
     ]
   })
+}
 
-  resizeObserver = new ResizeObserver(() => riskChart?.resize())
-  resizeObserver.observe(riskChartRef.value)
+function formatMetric(metric: DashboardMetric, index: number): MetricCard {
+  const label = metric.label
+  const numericValue = metric.value === undefined || metric.value === null ? '-' : String(metric.value)
+  const unit = metric.unit ?? ''
+  return {
+    label,
+    value: `${numericValue}${unit}`,
+    numericValue,
+    unit,
+    icon: metricIconMap[label] || metricIconMap[label.toUpperCase()] || Odometer,
+    tone: metricTones[index % metricTones.length]
+  }
+}
+
+function formatDeviceSummary(device: DashboardDeviceSummary, index: number): DeviceSummary {
+  return {
+    name: device.name,
+    total: device.total ?? 0,
+    online: device.online ?? 0,
+    alarms: device.alarms ?? 0,
+    icon: deviceIconMap[device.name] || Setting,
+    tone: deviceTones[index % deviceTones.length]
+  }
+}
+
+function statusText(status?: string | number | null): AlarmRecord['status'] {
+  if (status === 1 || status === 'processing' || status === '处理中') return '处理中'
+  return '未处理'
+}
+
+function levelText(level?: string | null): AlarmRecord['level'] {
+  return level === 'high' || level === '高危' ? '高危' : '中危'
+}
+
+function formatAlarm(record: DashboardAlarm): AlarmRecord {
+  return {
+    content: record.content || '-',
+    location: record.location || '-',
+    time: formatDateTime(record.occurredAt),
+    level: levelText(record.level),
+    status: statusText(record.status)
+  }
+}
+
+function formatSprayLog(log: DashboardSprayLog): SprayLog {
+  return {
+    content: log.content || '-',
+    mode: log.mode || '-',
+    time: formatDateTime(log.time)
+  }
+}
+
+async function loadDashboard() {
+  try {
+    const overview = await getDashboardOverview()
+    environmentMetrics.value = (overview.environmentMetrics || []).map(formatMetric)
+    deviceSummaries.value = (overview.deviceSummaries || []).map(formatDeviceSummary)
+    alarmRecords.value = (overview.alarmRecords || []).map(formatAlarm)
+    sprayLogs.value = (overview.sprayLogs || []).map(formatSprayLog)
+    riskLabels.value = (overview.riskStats || []).map((item) => item.label)
+    riskValues.value = (overview.riskStats || []).map((item) => Number(item.value) || 0)
+  } catch {
+    environmentMetrics.value = []
+    deviceSummaries.value = []
+    alarmRecords.value = []
+    sprayLogs.value = []
+    riskLabels.value = []
+    riskValues.value = []
+  }
+  updateRiskChart()
 }
 
 onMounted(() => {
   initRiskChart()
+  loadDashboard()
 })
 
 onBeforeUnmount(() => {
@@ -181,9 +256,9 @@ onBeforeUnmount(() => {
     <AppTopbar />
 
     <section class="dashboard-body">
-      <aside class="left-column">
-        <div class="breadcrumb-card">首页</div>
+      <div class="page-heading">首页</div>
 
+      <aside class="left-column">
         <section class="panel environment-panel">
           <h2>
             <el-icon>
@@ -203,8 +278,18 @@ onBeforeUnmount(() => {
                   <component :is="metric.icon" />
                 </el-icon>
               </span>
-              <span>{{ metric.label }}</span>
-              <strong>{{ metric.value }}</strong>
+              <span class="metric-label">{{ metric.label }}</span>
+              <strong>
+                {{ metric.numericValue }}
+                <small>{{ metric.unit }}</small>
+              </strong>
+            </article>
+            <article v-if="!environmentMetrics.length" class="metric-card tone-blue">
+              <span class="metric-icon">
+                <el-icon><Odometer /></el-icon>
+              </span>
+              <span class="metric-label">暂无数据</span>
+              <strong>-</strong>
             </article>
           </div>
         </section>
@@ -231,6 +316,11 @@ onBeforeUnmount(() => {
               <p :title="log.content">{{ log.content }}</p>
               <span>{{ log.time }}</span>
               <em :title="log.mode">{{ log.mode }}</em>
+            </article>
+            <article v-if="!sprayLogs.length" class="spray-item">
+              <p>暂无喷淋记录</p>
+              <span>-</span>
+              <em>-</em>
             </article>
           </div>
         </section>
@@ -279,6 +369,19 @@ onBeforeUnmount(() => {
               </div>
             </div>
           </article>
+          <article v-if="!deviceSummaries.length" class="device-card">
+            <span class="device-icon">
+              <el-icon><Setting /></el-icon>
+            </span>
+            <div class="device-info">
+              <strong>暂无设备统计</strong>
+              <div class="device-stats">
+                <span>总台数 <b>0</b></span>
+                <span>在线 <b class="online">0</b></span>
+                <span>报警 <b class="alarm">0</b></span>
+              </div>
+            </div>
+          </article>
         </section>
       </aside>
 
@@ -295,7 +398,7 @@ onBeforeUnmount(() => {
               <tr>
                 <th>报警内容</th>
                 <th>位置</th>
-                <th>时间</th>
+                <th class="time-head">时间</th>
                 <th>危险等级</th>
                 <th>状态</th>
               </tr>
@@ -304,7 +407,7 @@ onBeforeUnmount(() => {
               <tr v-for="record in alarmRecords" :key="`${record.content}-${record.time}`">
                 <td :title="record.content">{{ record.content }}</td>
                 <td :title="record.location">{{ record.location }}</td>
-                <td :title="record.time">{{ record.time }}</td>
+                <td class="time-cell" :title="record.time">{{ record.time }}</td>
                 <td>
                   <span
                     class="level-tag"
@@ -324,6 +427,9 @@ onBeforeUnmount(() => {
                   </span>
                 </td>
               </tr>
+              <tr v-if="!alarmRecords.length">
+                <td colspan="5">暂无报警记录</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -336,123 +442,21 @@ onBeforeUnmount(() => {
 .dashboard-page {
   height: 100vh;
   overflow: hidden;
-  color: #334155;
-  background: #f3f6fa;
-}
-
-.topbar {
-  display: grid;
-  grid-template-columns: 280px 1fr auto;
-  gap: 18px;
-  align-items: center;
-  height: 54px;
-  min-height: 54px;
-  padding: 0 22px;
-  color: #e5edf7;
-  background: #314768;
-  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
-}
-
-.system-brand {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-}
-
-.system-brand img {
-  width: 42px;
-  height: 42px;
-  object-fit: cover;
-  background: #fff;
-  border-radius: 7px;
-  box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.9);
-}
-
-.system-brand div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.system-brand strong {
-  overflow: hidden;
-  font-size: 15px;
-  letter-spacing: 0.04em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.system-brand span {
-  overflow: hidden;
-  color: #d5deeb;
-  font-size: 10px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.topnav {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-}
-
-.topnav button {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-  height: 34px;
-  padding: 0 8px;
-  color: #e5edf7;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-}
-
-.topnav button.active {
-  color: #fff;
-  border-bottom-color: #fbbf24;
-}
-
-.top-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.user-menu {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  color: #e5edf7;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-}
-
-.user-menu span {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  color: #314768;
-  font-weight: 800;
-  background: linear-gradient(135deg, #f8fafc, #fbbf24);
-  border-radius: 50%;
+  color: #24324a;
+  background:
+    linear-gradient(180deg, rgba(236, 243, 252, 0.94), rgba(247, 250, 253, 0.98)),
+    #f4f7fb;
 }
 
 .dashboard-body {
+  box-sizing: border-box;
   display: grid;
-  grid-template-columns: 360px minmax(520px, 1fr) 360px;
-  grid-template-rows: minmax(420px, 1fr) minmax(260px, 0.58fr);
-  gap: 12px;
-  height: calc(100vh - 54px);
-  padding: 10px;
+  grid-template-columns: minmax(330px, 380px) minmax(660px, 1fr) minmax(290px, 330px);
+  grid-template-rows: 28px minmax(0, 1fr) 230px;
+  gap: 12px 14px;
+  height: calc(100vh - 58px);
+  min-height: 0;
+  padding: 12px 18px 16px;
   overflow: hidden;
 }
 
@@ -461,53 +465,49 @@ onBeforeUnmount(() => {
 .right-column {
   display: grid;
   min-height: 0;
-  gap: 10px;
+  gap: 12px;
   overflow: hidden;
 }
 
 .left-column {
-  grid-row: 1 / 3;
-  grid-template-rows: 28px 220px 190px minmax(0, 1fr);
+  grid-column: 1;
+  grid-row: 2 / 4;
+  grid-template-rows: minmax(240px, 0.95fr) minmax(150px, 0.56fr) minmax(112px, 0.36fr);
 }
 
 .center-column {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: 2;
   grid-template-rows: minmax(0, 1fr);
 }
 
 .right-column {
   grid-column: 3;
-  grid-row: 1;
-  grid-template-rows: 1fr;
-}
-
-.panel {
-  background: #fff;
-  border: 1px solid #edf1f6;
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
-}
-
-.breadcrumb-card {
-  display: flex;
-  align-items: center;
-  height: 28px;
-  padding: 0;
-  color: #64748b;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 28px;
+  grid-row: 2;
+  grid-template-rows: minmax(0, 1fr);
+  align-self: start;
 }
 
 .panel {
   min-height: 0;
-  padding: 14px;
+  padding: 15px 18px;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(216, 226, 239, 0.86);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(31, 45, 71, 0.06);
 }
 
-.environment-panel {
-  padding: 12px;
+.page-heading {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  height: 28px;
+  color: #52627a;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 28px;
 }
 
 .panel h2 {
@@ -515,169 +515,199 @@ onBeforeUnmount(() => {
   gap: 8px;
   align-items: center;
   margin: 0 0 12px;
-  color: #334155;
+  color: #24324a;
   font-size: 16px;
+  font-weight: 900;
   line-height: 1.2;
 }
 
 .panel h2 .el-icon {
-  color: #314768;
+  color: #365d8f;
+}
+
+.environment-panel {
+  padding: 15px 16px;
 }
 
 .metric-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: calc((100% - 18px) / 3);
+  gap: 9px;
+  align-content: start;
+  min-height: 0;
   height: calc(100% - 32px);
+  overflow-y: auto;
+  padding-right: 3px;
 }
 
 .metric-card {
+  position: relative;
   display: grid;
-  grid-template-rows: 18px 16px 20px;
-  gap: 2px;
-  min-height: 0;
+  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 4px 10px;
   align-content: center;
-  place-items: center;
-  padding: 6px 4px;
-  border-radius: 8px;
+  min-height: 0;
+  padding: 9px 11px;
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 10px;
+}
+
+.metric-card::after {
+  position: absolute;
+  right: -22px;
+  bottom: -22px;
+  width: 72px;
+  height: 72px;
+  content: "";
+  background: currentColor;
+  border-radius: 50%;
+  opacity: 0.08;
 }
 
 .metric-icon {
   display: grid;
-  width: 18px;
-  height: 18px;
+  grid-row: 1 / 3;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  border-radius: 50%;
+  align-self: center;
+  background: #fff;
+  border-radius: 9px;
+  box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.96);
 }
 
 .metric-icon .el-icon {
-  font-size: 12px;
+  font-size: 18px;
 }
 
-.metric-card span {
+.metric-label {
+  overflow: hidden;
   color: #64748b;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric-card strong {
-  font-size: 13px;
-  line-height: 1.05;
+  display: grid;
+  gap: 1px;
+  align-items: start;
+  min-width: 0;
+  color: currentColor;
+  font-size: 20px;
+  font-weight: 950;
+  line-height: 1.1;
+  letter-spacing: 0;
+}
+
+.metric-card small {
+  margin-left: 0;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .tone-blue {
-  background: #edf4ff;
-}
-
-.tone-blue .metric-icon,
-.tone-blue strong {
-  color: #5b7cfa;
+  color: #315edb;
+  background: #eef5ff;
 }
 
 .tone-purple {
-  background: #f7efff;
-}
-
-.tone-purple .metric-icon,
-.tone-purple strong {
-  color: #a855f7;
+  color: #7c3aed;
+  background: #f5f0ff;
 }
 
 .tone-green {
-  background: #ecfdf3;
-}
-
-.tone-green .metric-icon,
-.tone-green strong {
-  color: #22c55e;
+  color: #0f9f6e;
+  background: #ecfdf5;
 }
 
 .tone-yellow {
-  background: #fffbeb;
-}
-
-.tone-yellow .metric-icon,
-.tone-yellow strong {
-  color: #d97706;
+  color: #b86a00;
+  background: #fff8e6;
 }
 
 .tone-red {
-  background: #fff1f2;
-}
-
-.tone-red .metric-icon,
-.tone-red strong {
-  color: #ef4444;
+  color: #e03131;
+  background: #fff0f0;
 }
 
 .tone-orange {
-  background: #fff7ed;
-}
-
-.tone-orange .metric-icon,
-.tone-orange strong {
-  color: #f97316;
+  color: #ea580c;
+  background: #fff4e8;
 }
 
 .risk-chart {
   width: 100%;
-  height: calc(100% - 24px);
-  min-height: 140px;
+  height: calc(100% - 26px);
+  min-height: 0;
 }
 
 .chart-panel h2 {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .spray-list {
   display: grid;
-  gap: 4px;
-  height: calc(100% - 30px);
-  overflow: auto;
-  padding-right: 4px;
+  align-content: start;
+  gap: 7px;
+  min-height: 0;
+  height: calc(100% - 32px);
+  overflow: hidden;
 }
 
 .spray-item {
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 132px auto;
+  gap: 10px;
   align-items: center;
   min-width: 0;
-  padding: 6px 0;
-  border-bottom: 1px solid #edf1f6;
+  min-height: 42px;
+  padding: 7px 10px;
+  background: #f8fbff;
+  border: 1px solid #edf2f8;
+  border-radius: 9px;
 }
 
 .spray-item p {
   overflow: hidden;
   margin: 0;
-  color: #475569;
+  color: #2f3d55;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .spray-item span {
-  color: #64748b;
+  color: #59677d;
   font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .spray-item em {
-  overflow: hidden;
-  padding: 4px 8px;
-  color: #314768;
+  min-width: 48px;
+  padding: 5px 9px;
+  color: #1e4e8c;
   font-size: 12px;
   font-style: normal;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  background: #edf4ff;
-  border-radius: 6px;
+  font-weight: 900;
+  text-align: center;
+  background: #e7f0ff;
+  border-radius: 999px;
 }
 
 .hero-panel {
-  padding: 16px;
+  padding: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.98));
 }
 
 .hero-panel img {
@@ -686,65 +716,94 @@ onBeforeUnmount(() => {
   height: 100%;
   max-height: 100%;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .alarm-panel {
   grid-column: 2 / 4;
-  grid-row: 2;
+  grid-row: 3;
   min-height: 0;
 }
 
+.alarm-panel h2 {
+  margin-bottom: 10px;
+}
+
 .table-wrap {
-  height: calc(100% - 34px);
-  overflow: auto;
+  height: calc(100% - 31px);
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #edf2f8;
+  border-radius: 10px;
 }
 
 table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
 th,
 td {
-  padding: 10px 14px;
+  padding: 0 14px;
   text-align: left;
-  border-bottom: 1px solid #edf1f6;
+  border-bottom: 1px solid #edf2f8;
 }
 
 th {
-  color: #64748b;
+  height: 34px;
+  color: #637083;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 900;
+  background: #f8fbff;
 }
 
 td {
+  height: 32px;
   overflow: hidden;
-  color: #475569;
-  font-size: 14px;
-  font-weight: 700;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 760;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.time-head,
+.time-cell {
+  width: 190px;
+}
+
+.time-cell {
+  color: #2f3d55;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
   white-space: nowrap;
 }
 
 .level-tag {
   display: inline-flex;
-  min-width: 42px;
+  min-width: 50px;
   justify-content: center;
   padding: 4px 8px;
   color: #b45309;
-  background: #fef3c7;
-  border-radius: 6px;
+  font-weight: 900;
+  background: #fff2c6;
+  border-radius: 8px;
 }
 
 .level-tag.high {
-  color: #dc2626;
-  background: #fee2e2;
+  color: #c0262d;
+  background: #ffe2e2;
 }
 
 .status-text {
   color: #f97316;
+  font-weight: 950;
 }
 
 .status-text.pending {
@@ -753,7 +812,9 @@ td {
 
 .device-panel {
   display: grid;
-  grid-template-rows: auto repeat(4, minmax(0, 1fr));
+  grid-template-rows: auto;
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: 10px;
   min-height: 0;
 }
@@ -764,29 +825,25 @@ td {
 
 .device-card {
   display: grid;
-  grid-template-columns: 52px 1fr;
+  grid-template-columns: 48px minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   min-height: 0;
-  padding: 10px;
-  background: #fbfcfe;
-  border: 1px solid #f1f5f9;
-  border-radius: 8px;
-}
-
-.device-card + .device-card {
-  margin-top: 0;
+  padding: 10px 12px;
+  background: #fbfdff;
+  border: 1px solid #e7edf6;
+  border-radius: 10px;
 }
 
 .device-icon {
   display: grid;
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   place-items: center;
-  font-size: 30px;
+  font-size: 24px;
   background: #fff;
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1px #edf1f6;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px #e4ebf5;
 }
 
 .device-info {
@@ -796,9 +853,10 @@ td {
 .device-info > strong {
   display: block;
   overflow: hidden;
-  margin-bottom: 6px;
-  color: #334155;
-  font-size: 15px;
+  margin-bottom: 9px;
+  color: #24324a;
+  font-size: 17px;
+  font-weight: 950;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -811,68 +869,85 @@ td {
 
 .device-stats span {
   display: grid;
-  gap: 2px;
-  color: #64748b;
+  gap: 3px;
+  color: #667085;
   font-size: 11px;
+  font-weight: 800;
   text-align: center;
 }
 
 .device-stats b {
-  color: #334155;
-  font-size: 14px;
+  color: #24324a;
+  font-size: 18px;
+  font-weight: 950;
+  line-height: 1;
 }
 
 .device-stats .online {
-  color: #22c55e;
+  color: #16a34a;
 }
 
 .device-stats .alarm {
   color: #ef4444;
 }
 
-@media (max-width: 1280px) {
-  .topbar {
-    grid-template-columns: 260px 1fr auto;
-  }
-
+@media (max-width: 1440px) {
   .dashboard-body {
-    grid-template-columns: 320px minmax(480px, 1fr);
+    grid-template-columns: minmax(310px, 350px) minmax(500px, 1fr) minmax(290px, 320px);
+    grid-template-rows: 28px minmax(0, 1fr) 210px;
+    gap: 12px;
+    padding: 12px 14px 14px;
   }
 
-  .right-column {
-    grid-column: 1 / -1;
+  .left-column {
+    grid-template-rows: minmax(220px, 0.95fr) minmax(140px, 0.56fr) minmax(104px, 0.36fr);
+    gap: 12px;
   }
 
-  .device-panel {
-    min-height: auto;
+  .panel {
+    padding: 16px;
+  }
+
+  .device-card {
+    padding: 9px 10px;
   }
 }
 
-@media (max-width: 920px) {
-  .topbar {
-    grid-template-columns: 1fr auto;
-  }
-
-  .topnav {
-    display: none;
+@media (max-width: 1120px) {
+  .dashboard-page {
+    overflow: auto;
   }
 
   .dashboard-body {
     grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
+    min-height: calc(100vh - 58px);
+    overflow: visible;
+  }
+
+  .left-column,
+  .center-column,
+  .right-column,
+  .page-heading,
+  .alarm-panel {
+    grid-column: 1;
+    grid-row: auto;
+    overflow: visible;
+  }
+
+  .left-column {
+    grid-template-rows: auto 260px auto;
+  }
+
+  .hero-panel {
+    min-height: 360px;
   }
 }
 
-@media (max-width: 560px) {
-  .topbar {
-    padding: 0 16px;
-  }
-
-  .system-brand strong {
-    font-size: 15px;
-  }
-
-  .system-brand span {
-    display: none;
+@media (max-width: 640px) {
+  .dashboard-body {
+    padding: 10px;
   }
 
   .metric-grid,
@@ -880,8 +955,20 @@ td {
     grid-template-columns: 1fr;
   }
 
-  .panel {
-    padding: 14px;
+  .metric-grid {
+    grid-auto-rows: minmax(64px, auto);
+  }
+
+  .spray-item {
+    grid-template-columns: 1fr;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  table {
+    min-width: 680px;
   }
 }
 </style>

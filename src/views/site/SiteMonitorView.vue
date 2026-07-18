@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { FullScreen, VideoCamera } from '@element-plus/icons-vue'
+import { listCameras, type CameraView } from '../../api/site'
 import AppTopbar from '../../components/AppTopbar.vue'
-import heroUrl from '../../assets/dashboard-hero.png'
 
 interface CameraItem {
   name: string
@@ -9,19 +10,36 @@ interface CameraItem {
   status: '在线' | '离线'
 }
 
-const cameras: CameraItem[] = [
-  { name: '住宅区施工处', area: '1号住宅小区', status: '在线' },
-  { name: '基坑1区摄像头', area: '基坑1区', status: '在线' },
-  { name: '西区大门口摄像头', area: '出入口', status: '在线' },
-  { name: '东区大门口摄像头', area: '基坑1区', status: '在线' }
-]
+const rawCameras = ref<CameraView[]>([])
+const cameras = computed<CameraItem[]>(() =>
+  rawCameras.value.map((camera) => ({
+    name: camera.name,
+    area: camera.locationName || '-',
+    status: camera.onlineStatus === 1 || camera.onlineStatus === '在线' || camera.onlineStatus === 'online' ? '在线' : '离线'
+  }))
+)
+const monitorCards = computed(() =>
+  rawCameras.value.slice(0, 4).map((camera, index) => ({
+    title: camera.name || `摄像头 ${index + 1}`,
+    className: ['feed-one', 'feed-two', 'feed-three', 'feed-four'][index],
+    snapshotUrl: camera.snapshotUrl || '',
+    streamUrl: camera.streamUrl || '',
+    hasStream: Boolean(camera.streamUrl || camera.snapshotUrl)
+  }))
+)
 
-const monitorCards = [
-  { title: '摄像头 1', className: 'feed-one' },
-  { title: '摄像头 2', className: 'feed-two' },
-  { title: '摄像头 3', className: 'feed-three' },
-  { title: '摄像头 4', className: 'feed-four' }
-]
+async function loadCameras() {
+  try {
+    const result = await listCameras({ page: 1, pageSize: 100 })
+    rawCameras.value = result.records
+  } catch {
+    rawCameras.value = []
+  }
+}
+
+onMounted(() => {
+  loadCameras()
+})
 </script>
 
 <template>
@@ -43,6 +61,14 @@ const monitorCards = [
               {{ camera.status }}
             </b>
           </article>
+          <article v-if="!cameras.length" class="camera-item">
+            <span class="camera-arrow">›</span>
+            <div>
+              <strong>暂无摄像头</strong>
+              <em>-</em>
+            </div>
+            <b class="offline">-</b>
+          </article>
         </section>
       </aside>
 
@@ -56,18 +82,40 @@ const monitorCards = [
             <span>{{ card.title }}</span>
           </header>
           <div class="video-frame">
-            <img :class="card.className" :src="heroUrl" alt="施工现场监控画面" />
+            <img
+              v-if="card.hasStream"
+              :class="card.className"
+              :src="card.streamUrl || card.snapshotUrl"
+              alt="施工现场监控画面"
+            />
+            <div v-else class="video-placeholder">
+              <el-icon>
+                <VideoCamera />
+              </el-icon>
+              <span>等待摄像头帧</span>
+            </div>
             <button type="button" title="全屏查看">
               <el-icon>
                 <FullScreen />
               </el-icon>
             </button>
-            <span class="live-badge">
+            <span class="live-badge" :class="{ waiting: !card.hasStream }">
               <el-icon>
                 <VideoCamera />
               </el-icon>
-              LIVE
+              {{ card.hasStream ? 'LIVE' : 'WAIT' }}
             </span>
+          </div>
+        </article>
+        <article v-if="!monitorCards.length" class="monitor-card">
+          <header>
+            <span>暂无摄像头</span>
+          </header>
+          <div class="video-frame empty-frame">
+            <el-icon>
+              <VideoCamera />
+            </el-icon>
+            <span>暂无摄像头设备</span>
           </div>
         </article>
       </section>
@@ -115,7 +163,7 @@ const monitorCards = [
   height: calc(100% - 38px);
   min-height: 0;
   padding: 20px 16px;
-  overflow: hidden;
+  overflow: auto;
   background: #fff;
   border: 1px solid #edf1f6;
   border-radius: 8px;
@@ -129,7 +177,7 @@ const monitorCards = [
 
 .camera-item {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   gap: 8px;
   align-items: start;
   padding: 10px 6px;
@@ -162,9 +210,13 @@ const monitorCards = [
 }
 
 .camera-item b {
+  max-width: 64px;
   padding: 4px 9px;
+  overflow: hidden;
   color: #16a34a;
   font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: #dcfce7;
   border-radius: 6px;
 }
@@ -176,7 +228,7 @@ const monitorCards = [
 
 .monitor-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(360px, 1fr));
+  grid-template-columns: repeat(2, minmax(300px, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 16px 18px;
   min-height: 0;
@@ -218,6 +270,36 @@ const monitorCards = [
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.video-placeholder,
+.empty-frame {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: #cbd5e1;
+  background:
+    linear-gradient(135deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.98)),
+    repeating-linear-gradient(45deg, rgba(148, 163, 184, 0.08) 0 8px, transparent 8px 16px);
+}
+
+.video-placeholder {
+  grid-template-rows: auto auto;
+  align-content: center;
+  gap: 10px;
+}
+
+.video-placeholder .el-icon,
+.empty-frame .el-icon {
+  color: #94a3b8;
+  font-size: 34px;
+}
+
+.video-placeholder span,
+.empty-frame span {
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .feed-one {
@@ -268,6 +350,11 @@ const monitorCards = [
   font-weight: 800;
   background: rgba(15, 23, 42, 0.58);
   border-radius: 6px;
+}
+
+.live-badge.waiting {
+  color: #fef3c7;
+  background: rgba(120, 53, 15, 0.68);
 }
 
 @media (max-width: 1180px) {

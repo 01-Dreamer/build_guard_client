@@ -1,6 +1,11 @@
 <script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue'
 import { Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { handleAlarm } from '../../api/alarms'
+import { listAiRiskRecords, type AiRiskRecordView } from '../../api/site'
 import AppTopbar from '../../components/AppTopbar.vue'
+import { formatDateTime } from '../../utils/format'
 
 interface RiskRecord {
   id: number
@@ -13,130 +18,70 @@ interface RiskRecord {
   handleTime: string
   result: string
   handled: boolean
+  sourceAlarmId?: number | null
 }
 
-const records: RiskRecord[] = [
-  {
-    id: 1,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-11-25 14:26:12',
-    type: '工作现场抽烟',
-    content: '检测到异常目标，异常类型：工作现场吸烟,检测人数:1',
-    handler: '--',
-    handleTime: '--',
-    result: '--',
-    handled: false
-  },
-  {
-    id: 2,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-11-25 14:25:21',
-    type: '工作现场抽烟',
-    content: '检测到异常目标，异常类型：工作现场吸烟,检测人数:1',
-    handler: '--',
-    handleTime: '--',
-    result: '--',
-    handled: false
-  },
-  {
-    id: 3,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-11-25 14:19:06',
-    type: '工作现场抽烟',
-    content: '检测到异常目标，异常类型：工作现场吸烟,检测人数:1',
-    handler: '--',
-    handleTime: '--',
-    result: '--',
-    handled: false
-  },
-  {
-    id: 4,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-09-16 17:01:54',
-    type: '工作现场抽烟',
-    content: '检测到异常目标，异常类型：工作现场吸烟,检测人数:1',
-    handler: '--',
-    handleTime: '--',
-    result: '--',
-    handled: false
-  },
-  {
-    id: 5,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-09-16 17:00:42',
-    type: '工作现场抽烟',
-    content: '检测到异常目标，异常类型：工作现场吸烟,检测人数:1',
-    handler: '--',
-    handleTime: '--',
-    result: '--',
-    handled: false
-  },
-  {
-    id: 6,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-09-16 16:54:07',
-    type: '工作现场抽烟',
-    content: '检测到异常目标，异常类型：工作现场吸烟,检测人数:1',
-    handler: '--',
-    handleTime: '--',
-    result: '--',
-    handled: false
-  },
-  {
-    id: 7,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-09-16 16:48:37',
-    type: '未戴安全帽',
-    content: '检测到异常目标，异常类型：未带安全帽,检测人数:1',
-    handler: '王艳',
-    handleTime: '2025-11-10 17:34:07',
-    result: '对其批评责令整改',
-    handled: true
-  },
-  {
-    id: 8,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-09-16 16:38:22',
-    type: '未戴安全帽',
-    content: '检测到异常目标，异常类型：未带安全帽,检测人数:1',
-    handler: '张三',
-    handleTime: '2025-11-14 11:45:52',
-    result: '对李四、王五进行批评教育',
-    handled: true
-  },
-  {
-    id: 9,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-09-16 16:34:18',
-    type: '工作现场抽烟',
-    content: '检测到异常目标，异常类型：工作现场吸烟,检测人数:2',
-    handler: '--',
-    handleTime: '--',
-    result: '--',
-    handled: false
-  },
-  {
-    id: 10,
-    code: 'CM-001',
-    device: '东区大门口摄像头',
-    alarmTime: '2025-09-16 16:27:32',
-    type: '工作现场抽烟',
-    content: '检测到异常目标，异常类型：工作现场吸烟,检测人数:1',
-    handler: '--',
-    handleTime: '--',
-    result: '--',
-    handled: false
+const rawRecords = ref<AiRiskRecordView[]>([])
+const filters = reactive({ deviceCode: '', alarmType: '', startTime: '', endTime: '' })
+const records = computed<RiskRecord[]>(() =>
+  rawRecords.value.map((record) => {
+    const status = record.status
+    const handled = status === 2 || status === '已处理' || status === 'handled'
+    return {
+      id: record.id,
+      code: record.deviceCode || record.cameraCode || '-',
+      device: record.deviceName || record.cameraName || '-',
+      alarmTime: formatDateTime(record.occurredAt || record.alarmTime),
+      type: (record.detectType || record.alarmType || '-') as RiskRecord['type'],
+      content: record.content || '-',
+      handler: record.handleByName || record.handler || '-',
+      handleTime: formatDateTime(record.handledAt || record.handleTime),
+      result: record.handleContent || record.result || '-',
+      handled,
+      sourceAlarmId: record.sourceAlarmId
+    }
+  })
+)
+
+async function loadRecords() {
+  try {
+    const result = await listAiRiskRecords({ ...filters, page: 1, pageSize: 100 })
+    rawRecords.value = result.records
+  } catch {
+    rawRecords.value = []
   }
-]
+}
+
+function resetFilters() {
+  filters.deviceCode = ''
+  filters.alarmType = ''
+  filters.startTime = ''
+  filters.endTime = ''
+  loadRecords()
+}
+
+async function handleRisk(record: RiskRecord) {
+  if (!record.sourceAlarmId) {
+    ElMessage.warning('该 AI 记录未关联报警，暂不能处理')
+    return
+  }
+
+  try {
+    const { value } = await ElMessageBox.prompt('请输入风险处理内容', 'AI风险处理', {
+      confirmButtonText: '确认处理',
+      cancelButtonText: '取消',
+      inputPattern: /\S+/,
+      inputErrorMessage: '处理内容不能为空'
+    })
+    await handleAlarm(record.sourceAlarmId, { handleBy: '系统管理员', handleContent: value })
+    ElMessage.success('AI风险已处理')
+    loadRecords()
+  } catch {
+    return
+  }
+}
+
+onMounted(loadRecords)
 </script>
 
 <template>
@@ -149,35 +94,37 @@ const records: RiskRecord[] = [
       <section class="filter-card">
         <label>
           <span>设备编号</span>
-          <input placeholder="请输入设备编号" />
+          <input v-model="filters.deviceCode" placeholder="请输入设备编号" />
         </label>
         <label>
           <span>报警类型</span>
-          <select>
-            <option>请选择报警类型</option>
+          <select v-model="filters.alarmType">
+            <option value="">请选择报警类型</option>
             <option>未戴安全帽</option>
             <option>未穿安全衣</option>
             <option>工作现场抽烟</option>
             <option>工作现场明火</option>
           </select>
         </label>
-        <label class="date-field">
-          <span>报警时间</span>
-          <input type="date" />
-        </label>
-        <span class="date-separator">至</span>
-        <label class="date-field no-caption">
-          <span>结束时间</span>
-          <input type="date" />
-        </label>
+        <div class="date-range">
+          <label class="date-field">
+            <span>报警时间</span>
+            <input v-model="filters.startTime" type="date" />
+          </label>
+          <span class="date-separator">至</span>
+          <label class="date-field no-caption">
+            <span>结束时间</span>
+            <input v-model="filters.endTime" type="date" />
+          </label>
+        </div>
         <div class="filter-actions">
-          <button class="primary-btn" type="button">
+          <button class="primary-btn" type="button" @click="loadRecords">
             <el-icon>
               <Search />
             </el-icon>
             搜索
           </button>
-          <button class="plain-btn" type="button">
+          <button class="plain-btn" type="button" @click="resetFilters">
             <el-icon>
               <Refresh />
             </el-icon>
@@ -187,53 +134,58 @@ const records: RiskRecord[] = [
       </section>
 
       <section class="table-card">
-        <table>
-          <colgroup>
-            <col class="col-index" />
-            <col class="col-code" />
-            <col class="col-device" />
-            <col class="col-time" />
-            <col class="col-type" />
-            <col class="col-content" />
-            <col class="col-handler" />
-            <col class="col-time" />
-            <col class="col-result" />
-            <col class="col-action" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>序号</th>
-              <th>设备编号</th>
-              <th>设备名称</th>
-              <th>报警时间</th>
-              <th>报警类型</th>
-              <th>报警内容</th>
-              <th>处理人</th>
-              <th>处理时间</th>
-              <th>处理内容</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="record in records" :key="record.id">
-              <td>{{ record.id }}</td>
-              <td :title="record.code">{{ record.code }}</td>
-              <td :title="record.device">{{ record.device }}</td>
-              <td :title="record.alarmTime">{{ record.alarmTime }}</td>
-              <td>
-                <span class="type-tag" :title="record.type">{{ record.type }}</span>
-              </td>
-              <td class="content-cell" :title="record.content">{{ record.content }}</td>
-              <td :title="record.handler">{{ record.handler }}</td>
-              <td :title="record.handleTime">{{ record.handleTime }}</td>
-              <td class="result-cell" :title="record.result">{{ record.result }}</td>
-              <td>
-                <button class="link-btn" type="button">详情</button>
-                <button v-if="!record.handled" class="success-link" type="button">处理</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="risk-table-body">
+          <table>
+            <colgroup>
+              <col class="col-index" />
+              <col class="col-code" />
+              <col class="col-device" />
+              <col class="col-time" />
+              <col class="col-type" />
+              <col class="col-content" />
+              <col class="col-handler" />
+              <col class="col-time" />
+              <col class="col-result" />
+              <col class="col-action" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>序号</th>
+                <th>设备编号</th>
+                <th>设备名称</th>
+                <th>报警时间</th>
+                <th>报警类型</th>
+                <th>报警内容</th>
+                <th>处理人</th>
+                <th>处理时间</th>
+                <th>处理内容</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="record in records" :key="record.id">
+                <td>{{ record.id }}</td>
+                <td :title="record.code">{{ record.code }}</td>
+                <td :title="record.device">{{ record.device }}</td>
+                <td class="time-cell" :title="record.alarmTime">{{ record.alarmTime }}</td>
+                <td>
+                  <span class="type-tag" :title="record.type">{{ record.type }}</span>
+                </td>
+                <td class="content-cell" :title="record.content">{{ record.content }}</td>
+                <td :title="record.handler">{{ record.handler }}</td>
+                <td class="time-cell" :title="record.handleTime">{{ record.handleTime }}</td>
+                <td class="result-cell" :title="record.result">{{ record.result }}</td>
+                <td>
+                  <button class="link-btn" type="button">详情</button>
+                  <button v-if="!record.handled" class="success-link" type="button" @click="handleRisk(record)">处理</button>
+                </td>
+              </tr>
+              <tr v-if="!records.length">
+                <td colspan="10">暂无 AI 风险记录</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <footer class="pagination">
           <button type="button">‹</button>
@@ -258,7 +210,7 @@ const records: RiskRecord[] = [
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 14px;
-  height: calc(100vh - 54px);
+  height: calc(100vh - 58px);
   padding: 16px 28px 14px;
   overflow: hidden;
 }
@@ -275,16 +227,16 @@ const records: RiskRecord[] = [
 
 .filter-card,
 .table-card {
-  background: #fff;
-  border: 1px solid #edf1f6;
-  border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
 }
 
 .filter-card {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px 14px;
+  display: grid;
+  grid-template-columns: 280px 280px minmax(440px, 1fr) auto;
+  gap: 14px 20px;
   align-items: flex-end;
   padding: 18px 24px;
 }
@@ -292,15 +244,22 @@ const records: RiskRecord[] = [
 .filter-card label {
   display: grid;
   gap: 9px;
-  width: 205px;
   min-width: 0;
   color: #334155;
   font-size: 13px;
   font-weight: 800;
 }
 
-.filter-card .date-field {
-  width: 310px;
+.date-range {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto minmax(190px, 1fr);
+  gap: 12px;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.date-range .date-field {
+  min-width: 0;
 }
 
 .filter-card .no-caption span {
@@ -316,7 +275,7 @@ const records: RiskRecord[] = [
   color: #334155;
   background: #fff;
   border: 1px solid #d7dde6;
-  border-radius: 6px;
+  border-radius: 8px;
   outline: none;
 }
 
@@ -326,15 +285,18 @@ const records: RiskRecord[] = [
 }
 
 .date-separator {
-  align-self: center;
-  margin-top: 22px;
+  align-self: end;
+  height: 38px;
   color: #64748b;
   font-weight: 800;
+  line-height: 38px;
 }
 
 .filter-actions {
   display: flex;
   gap: 8px;
+  justify-content: flex-end;
+  min-width: 210px;
 }
 
 .primary-btn,
@@ -360,15 +322,20 @@ const records: RiskRecord[] = [
 }
 
 .table-card {
-  display: flex;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
   min-height: 0;
-  flex-direction: column;
   overflow: hidden;
 }
 
+.risk-table-body {
+  min-height: 0;
+  overflow: auto;
+}
+
 table {
-  flex: 1;
   width: 100%;
+  min-width: 1240px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -386,7 +353,7 @@ table {
 }
 
 .col-time {
-  width: 12%;
+  width: 176px;
 }
 
 .col-type {
@@ -406,17 +373,19 @@ table {
 }
 
 .col-action {
-  width: 7%;
+  width: 90px;
 }
 
 th,
 td {
-  padding: 10px 10px;
+  height: 46px;
+  padding: 0 12px;
   text-align: left;
   border-bottom: 1px solid #edf1f6;
 }
 
 th {
+  height: 40px;
   color: #64748b;
   font-size: 13px;
   font-weight: 800;
@@ -433,6 +402,16 @@ td {
   white-space: nowrap;
 }
 
+.time-cell {
+  color: #2f3f58;
+  font-family: "DIN Alternate", "Roboto Mono", Consolas, monospace;
+  font-size: 12px;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
 .content-cell {
   min-width: 0;
   white-space: nowrap;
@@ -445,10 +424,14 @@ td {
 
 .type-tag {
   display: inline-flex;
+  max-width: 100%;
   padding: 4px 9px;
+  overflow: hidden;
   color: #dc2626;
   font-size: 12px;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: #fee2e2;
   border-radius: 999px;
 }
@@ -475,8 +458,10 @@ td {
 .pagination {
   display: flex;
   gap: 8px;
+  align-items: center;
   justify-content: flex-end;
-  padding: 10px 24px;
+  min-height: 54px;
+  padding: 8px 24px 12px;
 }
 
 .pagination button {
@@ -496,6 +481,14 @@ td {
 }
 
 @media (max-width: 1180px) {
+  .filter-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-actions {
+    justify-content: flex-start;
+  }
+
   .table-card {
     overflow-x: auto;
   }
@@ -506,9 +499,9 @@ td {
     padding-inline: 12px;
   }
 
-  .filter-card label,
-  .filter-card .date-field {
-    width: 100%;
+  .filter-card,
+  .date-range {
+    grid-template-columns: 1fr;
   }
 
   .filter-card .no-caption span {

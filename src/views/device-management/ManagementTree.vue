@@ -6,6 +6,10 @@ defineProps<{
   title?: string
   items: TreeItem[]
 }>()
+
+const emit = defineEmits<{
+  select: [item: TreeItem]
+}>()
 </script>
 
 <template>
@@ -13,23 +17,25 @@ defineProps<{
     <h2 v-if="title">{{ title }}</h2>
     <div class="tree-list">
       <div v-for="item in items" :key="item.label" class="tree-node">
-        <div class="tree-title" :class="{ active: item.active }">
+        <button class="tree-title" :class="{ active: item.active }" type="button" @click="emit('select', item)">
           <el-icon class="tree-icon">
             <Folder />
           </el-icon>
           <span>{{ item.label }}</span>
-        </div>
-        <div
+        </button>
+        <button
           v-for="child in item.children"
           :key="child.label"
           class="tree-child"
           :class="{ active: child.active }"
+          type="button"
+          @click="emit('select', child)"
         >
           <el-icon class="tree-icon">
             <CircleCheckFilled />
           </el-icon>
           <span>{{ child.label }}</span>
-        </div>
+        </button>
       </div>
     </div>
   </aside>

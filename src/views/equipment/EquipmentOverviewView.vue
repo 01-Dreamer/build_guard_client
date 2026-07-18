@@ -1,7 +1,12 @@
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { Monitor, TrendCharts } from '@element-plus/icons-vue'
+import { listDevices, type DeviceView } from '../../api/devices'
 import AppTopbar from '../../components/AppTopbar.vue'
-import { equipmentMenuItems, equipmentStats, overviewDevices } from './data'
+import {
+  equipmentMenuItems,
+  type EquipmentDevice
+} from './data'
 
 const overviewMenuPaths = [
   '/equipment/overview',
@@ -12,6 +17,64 @@ const overviewMenuPaths = [
 ]
 
 const overviewMenuItems = equipmentMenuItems.filter((item) => overviewMenuPaths.includes(item.path))
+const overviewDevices = ref<EquipmentDevice[]>([])
+const overviewStats = ref([
+  { label: '在线设备', value: '0', icon: Monitor, tone: '#3b82f6' },
+  { label: '报警总数', value: '0', icon: TrendCharts, tone: '#22c55e' },
+  { label: '预警总数', value: '0', icon: TrendCharts, tone: '#38bdf8' },
+  { label: '设备总数', value: '0', icon: Monitor, tone: '#f59e0b' }
+])
+
+function normalizeDeviceType(typeName?: string | null) {
+  const name = typeName || '其他'
+  if (name.includes('塔吊')) return '塔吊'
+  if (name.includes('升降')) return '升降机'
+  if (name.includes('高支模')) return '高支模'
+  if (name.includes('基坑')) return '深基坑'
+  return name
+}
+
+function coordinateByIndex(index: number, axis: 'x' | 'y') {
+  const xValues = [66, 43, 28, 76, 55, 82, 18, 36, 62, 72]
+  const yValues = [34, 78, 66, 51, 72, 76, 58, 42, 24, 62]
+  return axis === 'x' ? xValues[index % xValues.length] : yValues[index % yValues.length]
+}
+
+function toOverviewDevice(device: DeviceView, index: number): EquipmentDevice {
+  return {
+    name: device.name,
+    code: device.code,
+    type: normalizeDeviceType(device.typeName),
+    area: device.locationName || '-',
+    online: device.onlineStatus === 1,
+    x: device.x ?? coordinateByIndex(index, 'x'),
+    y: device.y ?? coordinateByIndex(index, 'y'),
+    warning: 0,
+    alarm: 0
+  }
+}
+
+async function loadOverviewDevices() {
+  try {
+    const result = await listDevices({ page: 1, pageSize: 100 })
+    overviewDevices.value = result.records.map(toOverviewDevice)
+    const total = overviewDevices.value.length
+    const online = overviewDevices.value.filter((device) => device.online).length
+    const warnings = overviewDevices.value.reduce((sum, device) => sum + device.warning, 0)
+    const alarms = overviewDevices.value.reduce((sum, device) => sum + device.alarm, 0)
+    overviewStats.value = [
+      { label: '在线设备', value: String(online), icon: Monitor, tone: '#3b82f6' },
+      { label: '报警总数', value: String(alarms), icon: TrendCharts, tone: '#22c55e' },
+      { label: '预警总数', value: String(warnings), icon: TrendCharts, tone: '#38bdf8' },
+      { label: '设备总数', value: String(total), icon: Monitor, tone: '#f59e0b' }
+    ]
+  } catch {
+    overviewDevices.value = []
+    overviewStats.value = overviewStats.value.map((stat) => ({ ...stat, value: '0' }))
+  }
+}
+
+onMounted(loadOverviewDevices)
 </script>
 
 <template>
@@ -66,10 +129,10 @@ const overviewMenuItems = equipmentMenuItems.filter((item) => overviewMenuPaths.
                 <el-icon>
                   <TrendCharts />
                 </el-icon>
-                今日升降机工作情况
+                设备运行概况
               </h2>
               <div class="metric-tile-grid">
-                <article v-for="stat in equipmentStats" :key="stat.label" class="metric-tile">
+                <article v-for="stat in overviewStats" :key="stat.label" class="metric-tile">
                   <span class="icon" :style="{ color: stat.tone }">
                     <el-icon>
                       <component :is="stat.icon" />
@@ -96,6 +159,11 @@ const overviewMenuItems = equipmentMenuItems.filter((item) => overviewMenuPaths.
                   <span>{{ device.code }}</span>
                   <em :class="{ offline: !device.online }">{{ device.online ? '运行' : '离线' }}</em>
                 </div>
+                <div v-if="!overviewDevices.length" class="runtime-row">
+                  <strong>暂无设备数据</strong>
+                  <span>-</span>
+                  <em class="offline">-</em>
+                </div>
               </div>
             </section>
           </aside>
@@ -108,8 +176,8 @@ const overviewMenuItems = equipmentMenuItems.filter((item) => overviewMenuPaths.
 <style scoped>
 .overview-layout {
   display: grid;
-  grid-template-columns: 86px minmax(620px, 1fr) 360px;
-  gap: 12px;
+  grid-template-columns: 92px minmax(0, 1fr) 360px;
+  gap: 14px;
   min-height: 0;
 }
 
@@ -122,8 +190,10 @@ const overviewMenuItems = equipmentMenuItems.filter((item) => overviewMenuPaths.
 
 .overview-nav a {
   display: grid;
-  gap: 6px;
-  place-items: center;
+  grid-template-rows: auto auto;
+  gap: 4px;
+  align-content: center;
+  justify-items: center;
   min-height: 74px;
   color: #7aa5f8;
   font-size: 12px;
@@ -147,13 +217,14 @@ const overviewMenuItems = equipmentMenuItems.filter((item) => overviewMenuPaths.
 
 .site-map {
   padding: 0;
+  background: #f8fbff;
 }
 
 .map-canvas {
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: 660px;
+  min-height: 640px;
   overflow: hidden;
   background:
     linear-gradient(135deg, rgba(248, 250, 252, 0.94), rgba(241, 245, 249, 0.72)),
@@ -285,8 +356,17 @@ const overviewMenuItems = equipmentMenuItems.filter((item) => overviewMenuPaths.
 .overview-side {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 12px;
+  gap: 14px;
   min-height: 0;
+}
+
+.overview-side .metric-tile-grid {
+  gap: 12px;
+}
+
+.overview-side .metric-tile {
+  min-height: 76px;
+  background: linear-gradient(180deg, #fbfdff, #f7faff);
 }
 
 .realtime-list {
@@ -296,7 +376,7 @@ const overviewMenuItems = equipmentMenuItems.filter((item) => overviewMenuPaths.
 
 .runtime-list-body {
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .runtime-row {

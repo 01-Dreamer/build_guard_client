@@ -61,6 +61,6 @@ onBeforeUnmount(() => {
 .chart-canvas {
   width: 100%;
   min-width: 0;
-  min-height: 210px;
+  min-height: 140px;
 }
 </style>

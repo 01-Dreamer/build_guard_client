@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue'
 import { Refresh, Search } from '@element-plus/icons-vue'
+import { listAiMonitorRules, type CameraView } from '../../api/site'
 import AppTopbar from '../../components/AppTopbar.vue'
 
 interface DeviceRule {
@@ -11,40 +13,35 @@ interface DeviceRule {
   status: '在线' | '离线'
 }
 
-const rules: DeviceRule[] = [
-  {
-    id: 1,
-    name: '住宅区施工处摄像头',
-    code: 'CM-003',
-    stream: 'live01',
-    categories: '未戴安全帽、未穿安全衣、工作现场抽烟',
-    status: '在线'
-  },
-  {
-    id: 2,
-    name: '基坑1区摄像头',
-    code: 'CM-002',
-    stream: 'live02',
-    categories: '未穿安全衣、工作现场明烟、工作现场明火',
-    status: '离线'
-  },
-  {
-    id: 3,
-    name: '西区大门口摄像头',
-    code: 'SX001',
-    stream: 'live03',
-    categories: '未穿安全衣、未戴安全帽、工作现场抽烟、夜间施工、工作现场明烟',
-    status: '离线'
-  },
-  {
-    id: 4,
-    name: '东区大门口摄像头',
-    code: 'CM-001',
-    stream: 'live04',
-    categories: '未戴安全帽、工作现场抽烟',
-    status: '离线'
+const rawRules = ref<CameraView[]>([])
+const filters = reactive({ name: '', code: '' })
+const rules = computed<DeviceRule[]>(() =>
+  rawRules.value.map((rule) => ({
+    id: rule.id,
+    name: rule.name,
+    code: rule.code,
+    stream: rule.streamCode || rule.cameraSource || '-',
+    categories: Array.isArray(rule.aiMonitorTypes) ? rule.aiMonitorTypes.join('、') : rule.aiMonitorTypes || '-',
+    status: rule.onlineStatus === 1 || rule.onlineStatus === '在线' || rule.onlineStatus === 'online' ? '在线' : '离线'
+  }))
+)
+
+async function loadRules() {
+  try {
+    const result = await listAiMonitorRules({ ...filters, page: 1, pageSize: 100 })
+    rawRules.value = result.records
+  } catch {
+    rawRules.value = []
   }
-]
+}
+
+function resetFilters() {
+  filters.name = ''
+  filters.code = ''
+  loadRules()
+}
+
+onMounted(loadRules)
 </script>
 
 <template>
@@ -57,20 +54,20 @@ const rules: DeviceRule[] = [
       <section class="filter-card">
         <label>
           <span>设备名称</span>
-          <input placeholder="请输入设备名称" />
+          <input v-model="filters.name" placeholder="请输入设备名称" />
         </label>
         <label>
           <span>设备编号</span>
-          <input placeholder="请输入设备编号" />
+          <input v-model="filters.code" placeholder="请输入设备编号" />
         </label>
         <div class="filter-actions">
-          <button class="primary-btn" type="button">
+          <button class="primary-btn" type="button" @click="loadRules">
             <el-icon>
               <Search />
             </el-icon>
             搜索
           </button>
-          <button class="plain-btn" type="button">
+          <button class="plain-btn" type="button" @click="resetFilters">
             <el-icon>
               <Refresh />
             </el-icon>
@@ -122,6 +119,9 @@ const rules: DeviceRule[] = [
               <td>
                 <button class="link-btn" type="button">修改</button>
               </td>
+            </tr>
+            <tr v-if="!rules.length">
+              <td colspan="7">暂无风险识别设置</td>
             </tr>
           </tbody>
         </table>
@@ -236,11 +236,12 @@ const rules: DeviceRule[] = [
   align-self: start;
   display: block;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 table {
   width: 100%;
+  min-width: 920px;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -275,7 +276,8 @@ table {
 
 th,
 td {
-  padding: 12px 20px;
+  height: 46px;
+  padding: 0 16px;
   text-align: left;
   border-bottom: 1px solid #edf1f6;
 }
@@ -310,10 +312,14 @@ td strong {
 
 .status-tag {
   display: inline-flex;
+  max-width: 100%;
   padding: 4px 9px;
+  overflow: hidden;
   color: #16a34a;
   font-size: 12px;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   background: #dcfce7;
   border-radius: 999px;
 }

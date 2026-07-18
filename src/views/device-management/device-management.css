@@ -48,6 +48,9 @@
   color: #475569;
   font-size: 14px;
   font-weight: 800;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
   border-radius: 4px;
 }
 
@@ -145,11 +148,15 @@
   color: #ef4444;
 }
 
-.management-form input {
+.management-form input,
+.management-form select,
+.management-dialog-form input,
+.management-dialog-form select {
   width: 100%;
   height: 38px;
   padding: 0 12px;
   color: #334155;
+  background: #fff;
   border: 1px solid #d7dde6;
   border-radius: 6px;
   outline: none;
@@ -178,7 +185,9 @@
   width: 38px;
   height: 20px;
   vertical-align: middle;
+  cursor: pointer;
   background: #22c55e;
+  border: 0;
   border-radius: 999px;
 }
 
@@ -197,6 +206,25 @@
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+.danger-link {
+  color: #ef4444;
+}
+
+.management-dialog-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 18px;
+}
+
+.management-dialog-form label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 @media (max-width: 980px) {

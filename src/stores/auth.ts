@@ -4,7 +4,9 @@ const TOKEN_KEY = 'build_guard_token'
 const USER_KEY = 'build_guard_user'
 
 interface UserInfo {
-  email: string
+  adminId?: number
+  username?: string
+  email?: string
   name: string
 }
 
