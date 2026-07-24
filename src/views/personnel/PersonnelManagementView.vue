@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { Delete, Edit, Plus, Refresh, Search, Upload } from '@element-plus/icons-vue'
 import {
   createPersonnel,
   deletePersonnel,
   listPersonnel,
   updatePersonnel,
+  uploadPersonnelAvatar,
   type PersonnelPayload,
   type PersonnelView
 } from '../../api/personnel'
@@ -18,6 +19,7 @@ interface Personnel {
   phone: string
   email: string
   avatar: string
+  avatarUrl: string
   tone: string
   jobTitle: string
   teamName: string
@@ -49,6 +51,7 @@ function toPersonnel(row: PersonnelView, index: number): Personnel {
     phone: row.phone || '-',
     email: row.email || '-',
     avatar: name.slice(0, 1),
+    avatarUrl: row.avatarUrl || '',
     tone: tonePalette[index % tonePalette.length],
     jobTitle: row.jobTitle || '',
     teamName: row.teamName || '',
@@ -149,6 +152,20 @@ async function removePersonnel(person: Personnel) {
   await loadPersonnel()
 }
 
+async function uploadAvatar(person: Personnel, event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请选择图片文件')
+    return
+  }
+  await uploadPersonnelAvatar(person.id, file)
+  ElMessage.success('头像已上传，正在注册人脸')
+  await loadPersonnel()
+}
+
 onMounted(loadPersonnel)
 </script>
 
@@ -208,12 +225,18 @@ onMounted(loadPersonnel)
                 <td>{{ person.phone }}</td>
                 <td :title="person.email">{{ person.email }}</td>
                 <td>
-                  <span class="person-avatar" :style="{ background: person.tone }">
+                  <img v-if="person.avatarUrl" class="person-avatar image-avatar" :src="person.avatarUrl" alt="人员头像" />
+                  <span v-else class="person-avatar" :style="{ background: person.tone }">
                     {{ person.avatar }}
                   </span>
                 </td>
                 <td>
                   <div class="personnel-actions">
+                    <label class="link-btn avatar-upload">
+                      <el-icon><Upload /></el-icon>
+                      头像
+                      <input type="file" accept="image/*" @change="uploadAvatar(person, $event)" />
+                    </label>
                     <button class="link-btn" type="button" @click="openEditDialog(person)">
                       <el-icon><Edit /></el-icon>
                       编辑
@@ -312,6 +335,18 @@ onMounted(loadPersonnel)
 .personnel-actions {
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.avatar-upload {
+  cursor: pointer;
+}
+
+.avatar-upload input {
+  display: none;
+}
+
+.image-avatar {
+  object-fit: cover;
 }
 
 .personnel-dialog-form {

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Aim, Clock, DataAnalysis, Document, MagicStick, Monitor, Operation } from '@element-plus/icons-vue'
 import { getEnvironmentRealtime, type EnvironmentRealtime } from '../../api/environment'
 import AppTopbar from '../../components/AppTopbar.vue'
+import { usePolling } from '../../composables/usePolling'
 import EquipmentChart from '../../components/equipment/EquipmentChart.vue'
 import { formatDateTime } from '../../utils/format'
 import {
@@ -42,7 +43,11 @@ async function loadRealtime() {
   }
 }
 
-onMounted(loadRealtime)
+const realtimePolling = usePolling(loadRealtime, 3000)
+
+onMounted(() => {
+  realtimePolling.start()
+})
 </script>
 
 <template>

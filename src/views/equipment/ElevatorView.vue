@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Bottom, DataLine, Odometer, Top, User, Warning } from '@element-plus/icons-vue'
 import { getElevatorDashboard, type EquipmentDashboard, type EquipmentInfoItem, type EquipmentMetric } from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
+import { usePolling } from '../../composables/usePolling'
 import EquipmentChart from '../../components/equipment/EquipmentChart.vue'
 import { formatDateTime } from '../../utils/format'
 import { alarmTrendOption, lineOption } from './chartOptions'
@@ -59,7 +60,11 @@ async function loadElevatorDashboard() {
   }
 }
 
-onMounted(loadElevatorDashboard)
+const elevatorPolling = usePolling(loadElevatorDashboard, 3000)
+
+onMounted(() => {
+  elevatorPolling.start()
+})
 </script>
 
 <template>

@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { DataAnalysis, Memo } from '@element-plus/icons-vue'
 import { getFormworkDashboard, type EquipmentDashboard } from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
+import { usePolling } from '../../composables/usePolling'
 import Equipment3DModel from '../../components/equipment/Equipment3DModel.vue'
 import EquipmentChart from '../../components/equipment/EquipmentChart.vue'
 import { formatDateTime } from '../../utils/format'
@@ -44,7 +45,11 @@ async function loadFormworkDashboard() {
   }
 }
 
-onMounted(loadFormworkDashboard)
+const formworkPolling = usePolling(loadFormworkDashboard, 3000)
+
+onMounted(() => {
+  formworkPolling.start()
+})
 </script>
 
 <template>

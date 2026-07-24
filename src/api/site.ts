@@ -1,4 +1,4 @@
-import { API_BASE_URL, get, type PageResult } from './http'
+import { API_BASE_URL, get, post, type PageResult } from './http'
 
 export interface CameraView {
   id: number
@@ -16,6 +16,9 @@ export interface CameraView {
 
 export interface AiRiskRecordView {
   id: number
+  taskId?: number | null
+  cameraDeviceId?: number | null
+  personnelId?: number | null
   personnelName?: string | null
   deviceCode?: string | null
   cameraCode?: string | null
@@ -28,6 +31,7 @@ export interface AiRiskRecordView {
   content?: string | null
   confidence?: number | null
   resultJson?: string | null
+  snapshotUrl?: string | null
   sourceAlarmId?: number | null
   alarmStatus?: number | string | null
   alarmLevel?: string | null
@@ -38,6 +42,26 @@ export interface AiRiskRecordView {
   handleContent?: string | null
   result?: string | null
   status?: number | string | null
+}
+
+export interface AiRiskReviewPayload {
+  personnelId?: number | null
+  fineAmount?: number | string | null
+  decision?: 'approve' | 'reject'
+  remark?: string
+}
+
+export interface CameraVideoView {
+  id: number
+  cameraDeviceId?: number | null
+  cameraCode?: string | null
+  cameraName?: string | null
+  url: string
+  objectKey?: string | null
+  fileName?: string | null
+  contentType?: string | null
+  sizeBytes?: number | null
+  createdAt?: string | null
 }
 
 export function listCameras(query: object = {}) {
@@ -70,9 +94,24 @@ export function listAiRiskRecords(query: object = {}) {
         alarmTime: record.alarmTime || record.occurredAt,
         alarmType: detectType,
         content: record.content || `${record.personnelName || '现场人员'}触发${detectType}${confidence}`,
+        snapshotUrl: normalizeAssetUrl(record.snapshotUrl),
         status: record.status ?? record.alarmStatus ?? 0
       }
     })
+  }))
+}
+
+export function reviewAiRiskRecord(id: number, payload: AiRiskReviewPayload) {
+  return post<{ violationId?: number | null }>(`/site/ai-risks/${id}/review`, payload)
+}
+
+export function listCameraVideos(query: object = {}) {
+  return get<PageResult<CameraVideoView>>('/site/camera-videos', query).then((result) => ({
+    ...result,
+    records: result.records.map((video) => ({
+      ...video,
+      url: normalizeAssetUrl(video.url) || video.url
+    }))
   }))
 }
 

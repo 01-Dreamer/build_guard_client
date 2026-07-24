@@ -18,6 +18,7 @@ import {
   WindPower
 } from '@element-plus/icons-vue'
 import AppTopbar from '../components/AppTopbar.vue'
+import { usePolling } from '../composables/usePolling'
 import { getDashboardOverview, type DashboardAlarm, type DashboardDeviceSummary, type DashboardMetric, type DashboardSprayLog } from '../api/dashboard'
 import heroUrl from '../assets/dashboard-hero.png'
 import { formatDateTime } from '../utils/format'
@@ -240,9 +241,11 @@ async function loadDashboard() {
   updateRiskChart()
 }
 
+const dashboardPolling = usePolling(loadDashboard, 3000)
+
 onMounted(() => {
   initRiskChart()
-  loadDashboard()
+  dashboardPolling.start()
 })
 
 onBeforeUnmount(() => {

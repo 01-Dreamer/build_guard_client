@@ -75,7 +75,7 @@ export async function request<T>(path: string, options: RequestOptions = {}) {
     requestHeaders.set('Authorization', `Bearer ${token}`)
   }
 
-  if (body && !requestHeaders.has('Content-Type')) {
+  if (body && !(body instanceof FormData) && !requestHeaders.has('Content-Type')) {
     requestHeaders.set('Content-Type', 'application/json')
   }
 
@@ -110,21 +110,21 @@ export function get<T>(path: string, query?: RequestOptions['query']) {
 export function post<T>(path: string, body?: unknown) {
   return request<T>(path, {
     method: 'POST',
-    body: body === undefined ? undefined : JSON.stringify(body)
+    body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body)
   })
 }
 
 export function put<T>(path: string, body?: unknown) {
   return request<T>(path, {
     method: 'PUT',
-    body: body === undefined ? undefined : JSON.stringify(body)
+    body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body)
   })
 }
 
 export function patch<T>(path: string, body?: unknown) {
   return request<T>(path, {
     method: 'PATCH',
-    body: body === undefined ? undefined : JSON.stringify(body)
+    body: body instanceof FormData ? body : body === undefined ? undefined : JSON.stringify(body)
   })
 }
 
