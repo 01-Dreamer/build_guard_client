@@ -663,7 +663,9 @@ onBeforeUnmount(() => {
   gap: 7px;
   min-height: 0;
   height: calc(100% - 32px);
-  overflow: hidden;
+  overflow: auto;
+  padding-right: 2px;
+  scrollbar-gutter: stable;
 }
 
 .spray-item {
@@ -725,6 +727,8 @@ onBeforeUnmount(() => {
 .alarm-panel {
   grid-column: 2 / 4;
   grid-row: 3;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -733,11 +737,12 @@ onBeforeUnmount(() => {
 }
 
 .table-wrap {
-  height: calc(100% - 31px);
+  height: auto;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid #edf2f8;
   border-radius: 10px;
+  scrollbar-gutter: stable;
 }
 
 table {
@@ -755,6 +760,9 @@ td {
 }
 
 th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   height: 34px;
   color: #637083;
   font-size: 14px;

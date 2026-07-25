@@ -11,6 +11,7 @@ import {
   type SprayTaskPayload,
   type SprayTaskView
 } from '../../api/environment'
+import AppPagination from '../../components/AppPagination.vue'
 import AppTopbar from '../../components/AppTopbar.vue'
 import { formatDateTime } from '../../utils/format'
 import { envStatusClass } from './data'
@@ -272,12 +273,7 @@ onMounted(async () => {
               </tbody>
             </table>
           </div>
-          <footer class="equipment-pagination">
-            <span class="count">共{{ totalRecords }}条　{{ pageSize }}条/页</span>
-            <button type="button" @click="changePage(page - 1)">‹</button>
-            <button class="active" type="button">{{ page }}</button>
-            <button type="button" @click="changePage(page + 1)">›</button>
-          </footer>
+          <AppPagination :page="page" :total="totalRecords" :page-size="pageSize" @change="changePage" />
         </section>
 
         <el-dialog v-model="dialogVisible" :title="editingId ? '修改喷淋任务' : '新增喷淋任务'" width="760px" destroy-on-close>

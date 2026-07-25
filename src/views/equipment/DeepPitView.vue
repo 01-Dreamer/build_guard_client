@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { DataAnalysis, Memo } from '@element-plus/icons-vue'
-import { getDeepPitDashboard, type EquipmentDashboard } from '../../api/equipment'
+import {
+  getConstructionAlarmTypeSummary,
+  getConstructionAlarmTrend,
+  getDeepPitDashboard,
+  type EquipmentAlarmTypeSummary,
+  type EquipmentAlarmTrendPoint,
+  type EquipmentDashboard
+} from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
 import { usePolling } from '../../composables/usePolling'
 import Equipment3DModel from '../../components/equipment/Equipment3DModel.vue'
@@ -10,6 +17,8 @@ import { formatDateTime } from '../../utils/format'
 import { alarmTrendOption, pieOption } from './chartOptions'
 
 const dashboard = ref<EquipmentDashboard>({})
+const alarmTrend = ref<EquipmentAlarmTrendPoint[]>([])
+const alarmTypeSummary = ref<EquipmentAlarmTypeSummary[]>([])
 const tabs = computed(() => (dashboard.value.devices || []).map((device) => device.name))
 const activeDevice = computed(() => dashboard.value.devices?.[0])
 const pitRows = computed(() =>
@@ -30,6 +39,11 @@ const settlementRows = computed(() =>
     status: row.status || '-'
   }))
 )
+const modelReadouts = computed(() => [
+  readoutValue(['土压力', 'soilPressure'], '土压力'),
+  readoutValue(['应变', 'strain'], '应变拉力'),
+  readoutValue(['地下水位', 'waterLevel'], '地下水位')
+])
 
 function splitDateTime(value?: string | number | Date | null) {
   const formatted = formatDateTime(value)
@@ -37,11 +51,31 @@ function splitDateTime(value?: string | number | Date | null) {
   return { date, time }
 }
 
+function readoutValue(keywords: string[], label: string) {
+  const row = pitRows.value.find((item) =>
+    keywords.some((keyword) => item.name.toLowerCase().includes(keyword.toLowerCase()))
+  )
+  const unit = row?.unit && row.unit !== '-' ? ` ${row.unit}` : ''
+  return {
+    label,
+    value: row ? `${row.value}${unit}` : '-'
+  }
+}
+
 async function loadDeepPitDashboard() {
   try {
-    dashboard.value = await getDeepPitDashboard()
+    const [dashboardResult, trendResult, typeSummaryResult] = await Promise.all([
+      getDeepPitDashboard(),
+      getConstructionAlarmTrend('deep_pit'),
+      getConstructionAlarmTypeSummary('deep_pit')
+    ])
+    dashboard.value = dashboardResult
+    alarmTrend.value = trendResult
+    alarmTypeSummary.value = typeSummaryResult
   } catch {
     dashboard.value = {}
+    alarmTrend.value = []
+    alarmTypeSummary.value = []
   }
 }
 
@@ -157,10 +191,14 @@ onMounted(() => {
             </nav>
 
             <div class="model-wrap">
-              <Equipment3DModel model="pit" />
-              <div class="model-label label-one">土压力<br />45.02 kPa</div>
-              <div class="model-label label-two">应变拉力<br />165.13 kN</div>
-              <div class="model-label label-three">地下水位<br />-2.88 m</div>
+              <div class="model-scene">
+                <Equipment3DModel model="pit" />
+              </div>
+              <div class="model-readouts">
+                <div v-for="item in modelReadouts" :key="item.label" class="model-label">
+                  {{ item.label }}<br />{{ item.value }}
+                </div>
+              </div>
               <div class="legend-row pit-legend">
                 <span class="blue" />正常网格墙
                 <span class="yellow" />预警网格墙
@@ -172,8 +210,8 @@ onMounted(() => {
           </section>
 
           <aside class="structure-right">
-            <EquipmentChart title="一周预警报警数据" :option="alarmTrendOption()" />
-            <EquipmentChart title="累计报警类型占比" :option="pieOption(['沉降值超下限', 'x倾角超下限', 'y倾角超下限', '应变拉力超上限', '应变拉力超下限', '土压力超上限'])" />
+            <EquipmentChart title="一周预警报警数据" :option="alarmTrendOption(alarmTrend)" />
+            <EquipmentChart title="累计报警类型占比" :option="pieOption(alarmTypeSummary)" />
           </aside>
         </section>
       </div>
@@ -227,46 +265,58 @@ onMounted(() => {
 
 .model-wrap {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 156px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: linear-gradient(180deg, #fbfdff, #f4f8ff);
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(242, 247, 255, 0.96)),
+    radial-gradient(circle at 42% 38%, rgba(47, 111, 237, 0.12), transparent 44%);
   border: 1px solid #e6eefb;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+
+.model-scene {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   border-radius: 8px;
 }
 
-.model-wrap :deep(.equipment-3d-model) {
+.model-scene :deep(.equipment-3d-model) {
   min-height: 0;
 }
 
+.model-readouts {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
 .model-label {
-  position: absolute;
-  color: #111827;
+  min-width: 0;
+  padding: 9px 11px;
+  color: #24324a;
   font-size: 15px;
   font-weight: 900;
-  text-align: center;
-  text-shadow: 0 1px 0 #fff;
-}
-
-.label-one {
-  left: 28%;
-  top: 29%;
-}
-
-.label-two {
-  left: 49%;
-  top: 27%;
-}
-
-.label-three {
-  left: 49%;
-  top: 42%;
+  line-height: 1.28;
+  text-align: left;
+  text-shadow: none;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 8px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(9px);
 }
 
 .legend-row {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -274,6 +324,11 @@ onMounted(() => {
   color: #475569;
   font-size: 13px;
   font-weight: 900;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(226, 232, 240, 0.76);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
 }
 
 .legend-row span {

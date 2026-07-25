@@ -113,6 +113,9 @@ async function loadDevices() {
 
     deviceTypes.value = typeResult
     deviceLocations.value = locationResult
+    if (!activeTypeId.value && typeResult.length) {
+      activeTypeId.value = typeResult.find((type) => type.parentId)?.id || typeResult[0]?.id || null
+    }
     const filtered = activeTypeId.value
       ? deviceResult.records.filter((device) => device.typeId === activeTypeId.value)
       : deviceResult.records
@@ -250,72 +253,74 @@ onMounted(loadDevices)
               </button>
             </div>
 
-            <table class="equipment-table" :aria-busy="loading">
-              <colgroup>
-                <col class="col-id" />
-                <col />
-                <col />
-                <col />
-                <col />
-                <col class="col-sort" />
-                <col class="col-status" />
-                <col class="col-switch" />
-                <col class="col-actions" />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th>序号</th>
-                  <th>设备名称</th>
-                  <th>设备编号</th>
-                  <th>设备位置</th>
-                  <th>设备类型</th>
-                  <th>排序</th>
-                  <th>状态</th>
-                  <th>启用/禁用</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="device in managedDevices" :key="device.id">
-                  <td>{{ device.id }}</td>
-                  <td>
-                    <button class="link-btn" type="button">{{ device.name }}</button>
-                  </td>
-                  <td>{{ device.code }}</td>
-                  <td>{{ device.location }}</td>
-                  <td>{{ device.type }}</td>
-                  <td>{{ device.order }}</td>
-                  <td>
-                    <span class="status-text">{{ device.status }}</span>
-                  </td>
-                  <td>
-                    <button
-                      class="switch-pill"
-                      :class="{ disabled: !device.enabled }"
-                      type="button"
-                      :aria-label="device.enabled ? '禁用设备' : '启用设备'"
-                      @click="toggleEnabled(device)"
-                    />
-                  </td>
-                  <td>
-                    <div class="device-link-group">
-                      <button class="link-btn" type="button">对接配置</button>
-                      <button class="link-btn" type="button" @click="openEditDialog(device)">
-                        <el-icon><Edit /></el-icon>
-                        编辑
-                      </button>
-                      <button class="link-btn danger-link" type="button" @click="removeDevice(device)">
-                        <el-icon><Delete /></el-icon>
-                        删除
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                <tr v-if="!managedDevices.length">
-                  <td colspan="9">暂无设备数据</td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="device-table-body">
+              <table class="equipment-table" :aria-busy="loading">
+                <colgroup>
+                  <col class="col-id" />
+                  <col class="col-name" />
+                  <col class="col-code" />
+                  <col class="col-location" />
+                  <col class="col-type" />
+                  <col class="col-sort" />
+                  <col class="col-status" />
+                  <col class="col-switch" />
+                  <col class="col-actions" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>序号</th>
+                    <th>设备名称</th>
+                    <th>设备编号</th>
+                    <th>设备位置</th>
+                    <th>设备类型</th>
+                    <th>排序</th>
+                    <th>状态</th>
+                    <th>启用/禁用</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="device in managedDevices" :key="device.id">
+                    <td>{{ device.id }}</td>
+                    <td>
+                      <button class="link-btn" type="button">{{ device.name }}</button>
+                    </td>
+                    <td>{{ device.code }}</td>
+                    <td>{{ device.location }}</td>
+                    <td>{{ device.type }}</td>
+                    <td>{{ device.order }}</td>
+                    <td>
+                      <span class="status-text">{{ device.status }}</span>
+                    </td>
+                    <td>
+                      <button
+                        class="switch-pill"
+                        :class="{ disabled: !device.enabled }"
+                        type="button"
+                        :aria-label="device.enabled ? '禁用设备' : '启用设备'"
+                        @click="toggleEnabled(device)"
+                      />
+                    </td>
+                    <td>
+                      <div class="device-link-group">
+                        <button class="link-btn" type="button">对接配置</button>
+                        <button class="link-btn" type="button" @click="openEditDialog(device)">
+                          <el-icon><Edit /></el-icon>
+                          编辑
+                        </button>
+                        <button class="link-btn danger-link" type="button" @click="removeDevice(device)">
+                          <el-icon><Delete /></el-icon>
+                          删除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr v-if="!managedDevices.length">
+                    <td colspan="9">暂无设备数据</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
             <el-dialog v-model="deviceDialogVisible" :title="editingId ? '编辑设备' : '新增设备'" width="720px" destroy-on-close>
               <form class="management-dialog-form" @submit.prevent="saveDevice">
@@ -377,33 +382,57 @@ onMounted(loadDevices)
 
 <style scoped>
 .col-id {
-  width: 70px;
+  width: 64px;
+}
+
+.col-name {
+  width: 15%;
+}
+
+.col-code {
+  width: 12%;
+}
+
+.col-location,
+.col-type {
+  width: 11%;
 }
 
 .col-sort,
 .col-status,
 .col-switch {
-  width: 110px;
+  width: 82px;
 }
 
 .col-actions {
-  width: 250px;
+  width: 220px;
 }
 
 .device-table-panel {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.device-table-body {
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
 }
 
 .device-table-panel .equipment-table {
-  min-width: 1080px;
+  min-width: 0;
 }
 
 .device-table-panel .equipment-table th,
 .device-table-panel .equipment-table td {
-  height: 44px;
+  height: 46px;
   padding: 8px 12px;
+  white-space: nowrap;
+}
+
+.device-table-panel .equipment-table tbody {
+  vertical-align: top;
 }
 
 .status-text {
@@ -421,8 +450,10 @@ onMounted(loadDevices)
 }
 
 .device-link-group {
+  display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px 10px;
+  align-items: center;
 }
 
 .management-dialog-form {

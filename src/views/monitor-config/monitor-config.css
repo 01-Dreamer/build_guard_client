@@ -55,10 +55,14 @@
 
 .monitor-table-body {
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .monitor-table-body .equipment-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   height: 42px;
 }
 

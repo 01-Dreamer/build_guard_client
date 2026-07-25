@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Cpu, DataLine, Odometer, Warning } from '@element-plus/icons-vue'
-import { getTowerCraneDashboard, type EquipmentDashboard, type EquipmentInfoItem, type EquipmentMetric } from '../../api/equipment'
+import {
+  getConstructionAlarmTrend,
+  getTowerCraneDashboard,
+  type EquipmentAlarmTrendPoint,
+  type EquipmentDashboard,
+  type EquipmentInfoItem,
+  type EquipmentMetric
+} from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
 import { usePolling } from '../../composables/usePolling'
 import EquipmentChart from '../../components/equipment/EquipmentChart.vue'
+import Equipment3DModel from '../../components/equipment/Equipment3DModel.vue'
 import { formatDateTime } from '../../utils/format'
 import { alarmTrendOption, gaugeOption, lineOption } from './chartOptions'
 
 const dashboard = ref<EquipmentDashboard>({})
+const alarmTrend = ref<EquipmentAlarmTrendPoint[]>([])
 const towerTabs = computed(() => (dashboard.value.devices || []).map((device) => device.name))
 const activeDevice = computed(() => dashboard.value.devices?.[0])
 const towerInfo = computed(() =>
@@ -52,9 +61,15 @@ function splitDateTime(value?: string | number | Date | null) {
 
 async function loadTowerDashboard() {
   try {
-    dashboard.value = await getTowerCraneDashboard()
+    const [dashboardResult, trendResult] = await Promise.all([
+      getTowerCraneDashboard(),
+      getConstructionAlarmTrend('tower_crane')
+    ])
+    dashboard.value = dashboardResult
+    alarmTrend.value = trendResult
   } catch {
     dashboard.value = {}
+    alarmTrend.value = []
   }
 }
 
@@ -98,7 +113,7 @@ onMounted(() => {
               </div>
             </section>
 
-            <EquipmentChart title="报警趋势" :option="alarmTrendOption()" />
+            <EquipmentChart title="报警趋势" :option="alarmTrendOption(alarmTrend)" />
 
             <section class="equipment-panel">
               <h2>设备信息</h2>
@@ -132,17 +147,17 @@ onMounted(() => {
             </nav>
 
             <div class="tower-hero">
-              <div class="tower-drawing">
-                <div class="tower-mast" />
-                <div class="tower-jib" />
-                <div class="tower-counter" />
-                <div class="tower-hook" />
+              <div class="tower-model-info">
                 <strong>设备编号 {{ activeDevice?.code || '-' }}</strong>
                 <span class="data-time" :title="reportedAt">
                   <em>数据获取时间</em>
                   {{ reportedAtParts.date }}
                   <b v-if="reportedAtParts.time">{{ reportedAtParts.time }}</b>
                 </span>
+              </div>
+
+              <div class="tower-model-card">
+                <Equipment3DModel model="tower" />
               </div>
 
               <div class="work-list">
@@ -262,141 +277,144 @@ onMounted(() => {
 
 .tower-workspace {
   display: grid;
-  grid-template-rows: auto minmax(300px, 1fr) auto;
+  grid-template-rows: auto minmax(300px, 1fr) minmax(158px, 214px);
   gap: 12px;
+  height: 100%;
+  overflow: hidden;
 }
 
 .tower-hero {
   display: grid;
-  grid-template-columns: minmax(180px, 0.85fr) minmax(220px, 1fr) minmax(180px, 0.8fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(360px, 1fr) auto;
   gap: 14px;
-  align-items: center;
+  align-items: stretch;
   min-height: 0;
   overflow: hidden;
-  padding: 20px;
-  background: linear-gradient(180deg, #fbfdff, #f7faff);
+  padding: 14px;
+  background:
+    linear-gradient(180deg, #fbfdff, #f7faff),
+    radial-gradient(circle at 34% 28%, rgba(47, 111, 237, 0.12), transparent 38%);
   border: 1px solid #e6eefb;
   border-radius: 8px;
 }
 
-.tower-drawing {
+.tower-model-card {
   position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-row: 2;
+  min-width: 0;
   height: 100%;
-  min-height: 260px;
-}
-
-.tower-mast,
-.tower-jib,
-.tower-counter,
-.tower-hook {
-  position: absolute;
-  background: #6fa0ff;
-}
-
-.tower-mast {
-  left: 44%;
-  bottom: 58px;
-  width: 24px;
-  height: 190px;
-  background:
-    repeating-linear-gradient(45deg, transparent 0 14px, rgba(255, 255, 255, 0.9) 14px 18px),
-    #6fa0ff;
-  border: 3px solid #3f6fed;
-}
-
-.tower-jib {
-  left: 33%;
-  top: 56px;
-  width: 58%;
-  height: 16px;
-  transform: skewX(22deg);
-  transform-origin: left center;
-}
-
-.tower-counter {
-  left: 19%;
-  top: 58px;
-  width: 70px;
-  height: 22px;
-  background: #f59e0b;
-}
-
-.tower-hook {
-  left: 78%;
-  top: 72px;
-  width: 3px;
-  height: 82px;
-}
-
-.tower-hook::after {
-  position: absolute;
-  left: -22px;
-  bottom: -30px;
-  width: 48px;
-  height: 22px;
-  content: "";
-  background: #60a5fa;
-  border-radius: 3px;
-}
-
-.tower-drawing strong,
-.tower-drawing span {
-  position: absolute;
-  left: 22%;
-  right: 0;
+  min-height: 360px;
   overflow: hidden;
-  color: #64748b;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.tower-model-card :deep(.equipment-3d-model) {
+  min-width: 0;
+  min-height: 360px;
+  border: 1px solid #e2eaf6;
+}
+
+.tower-model-info {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  display: flex;
+  gap: 12px 18px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  color: #2f3f58;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(203, 213, 225, 0.82);
+  border-radius: 8px;
+  box-shadow: 0 12px 26px rgba(30, 41, 59, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.tower-model-info strong,
+.tower-model-info span {
+  overflow: hidden;
   font-weight: 900;
-  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tower-drawing strong {
-  bottom: 32px;
+.tower-model-info strong {
+  color: #1e3a8a;
+  font-size: 13px;
 }
 
-.tower-drawing span {
-  bottom: 2px;
-  color: #6d95ff;
+.tower-model-info span {
+  color: #64748b;
+  font-size: 12px;
 }
 
-.tower-drawing .data-time {
+.tower-model-info .data-time {
   display: inline-flex;
   gap: 6px;
-  justify-content: center;
+  justify-content: flex-end;
+  min-width: 0;
   color: #315985;
   font-family: "DIN Alternate", "Roboto Mono", Consolas, monospace;
   font-size: 13px;
   line-height: 1.2;
 }
 
-.tower-drawing .data-time em {
+.tower-model-info .data-time em {
   color: #64748b;
   font-family: inherit;
   font-style: normal;
 }
 
-.tower-drawing .data-time b {
+.tower-model-info .data-time b {
   color: #2f3f58;
   font-weight: 900;
 }
 
 .work-list {
   display: grid;
-  gap: 10px;
+  grid-row: 3;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 9px;
+  align-self: stretch;
+  align-content: start;
   min-width: 0;
 }
 
 .metric-card {
   display: flex;
+  gap: 14px;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
   min-height: 52px;
-  padding: 0 16px;
+  padding: 8px 14px;
   background: #fff;
   border: 1px solid #e6eefb;
   border-radius: 8px;
+}
+
+.metric-card strong {
+  flex: 0 0 auto;
+}
+
+.metric-card span {
+  min-width: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-weight: 900;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gauge-wrap {
+  display: none;
 }
 
 .gauge-wrap :deep(.chart-card) {
@@ -409,8 +427,18 @@ onMounted(() => {
   font-size: 16px;
 }
 
+.realtime-metrics {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
 .realtime-metrics .metric-tile-grid {
   gap: 8px;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .realtime-metrics :deep(.metric-tile),
@@ -425,8 +453,7 @@ onMounted(() => {
 }
 
 @media (max-width: 1180px) {
-  .machine-layout,
-  .tower-hero {
+  .machine-layout {
     grid-template-columns: 1fr;
   }
 }

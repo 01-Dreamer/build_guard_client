@@ -42,6 +42,14 @@ const personnelForm = reactive<PersonnelPayload>({
   status: 1
 })
 
+function statusText(status?: number | null) {
+  return Number(status ?? 1) === 1 ? '正常' : '停用'
+}
+
+function statusClass(status?: number | null) {
+  return Number(status ?? 1) === 1 ? 'good' : 'warning'
+}
+
 function toPersonnel(row: PersonnelView, index: number): Personnel {
   const name = row.name || '未命名'
 
@@ -202,9 +210,12 @@ onMounted(loadPersonnel)
           <table class="equipment-table personnel-table">
             <colgroup>
               <col class="col-id" />
-              <col />
-              <col />
-              <col />
+              <col class="col-name" />
+              <col class="col-phone" />
+              <col class="col-email" />
+              <col class="col-job" />
+              <col class="col-team" />
+              <col class="col-status" />
               <col class="col-avatar" />
               <col class="col-actions" />
             </colgroup>
@@ -214,6 +225,9 @@ onMounted(loadPersonnel)
                 <th>姓名</th>
                 <th>电话</th>
                 <th>邮箱</th>
+                <th>岗位</th>
+                <th>班组</th>
+                <th>状态</th>
                 <th>头像</th>
                 <th>操作</th>
               </tr>
@@ -224,6 +238,13 @@ onMounted(loadPersonnel)
                 <td>{{ person.name }}</td>
                 <td>{{ person.phone }}</td>
                 <td :title="person.email">{{ person.email }}</td>
+                <td>{{ person.jobTitle || '-' }}</td>
+                <td>{{ person.teamName || '-' }}</td>
+                <td>
+                  <span class="status-pill" :class="statusClass(person.status)">
+                    {{ statusText(person.status) }}
+                  </span>
+                </td>
                 <td>
                   <img v-if="person.avatarUrl" class="person-avatar image-avatar" :src="person.avatarUrl" alt="人员头像" />
                   <span v-else class="person-avatar" :style="{ background: person.tone }">
@@ -249,7 +270,7 @@ onMounted(loadPersonnel)
                 </td>
               </tr>
               <tr v-if="!personnelList.length">
-                <td colspan="6">暂无人员数据</td>
+                <td colspan="9">暂无人员数据</td>
               </tr>
             </tbody>
           </table>
@@ -317,7 +338,8 @@ onMounted(loadPersonnel)
 }
 
 .personnel-table {
-  min-width: 820px;
+  min-width: 1180px;
+  table-layout: fixed;
 }
 
 .personnel-table th,
@@ -332,9 +354,50 @@ onMounted(loadPersonnel)
   white-space: nowrap;
 }
 
+.personnel-table .col-id {
+  width: 70px;
+}
+
+.personnel-table .col-name {
+  width: 130px;
+}
+
+.personnel-table .col-phone {
+  width: 150px;
+}
+
+.personnel-table .col-email {
+  width: 220px;
+}
+
+.personnel-table .col-job,
+.personnel-table .col-team {
+  width: 110px;
+}
+
+.personnel-table .col-status {
+  width: 90px;
+}
+
+.personnel-table .col-avatar {
+  width: 100px;
+}
+
+.personnel-table .col-actions {
+  width: 230px;
+}
+
 .personnel-actions {
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 10px;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+.personnel-actions .link-btn {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
 }
 
 .avatar-upload {

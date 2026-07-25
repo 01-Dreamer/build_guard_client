@@ -11,6 +11,7 @@ import {
   type MonitorPointPayload,
   type MonitorPointView
 } from '../../api/monitor'
+import AppPagination from '../../components/AppPagination.vue'
 import AppTopbar from '../../components/AppTopbar.vue'
 
 const monitorPointRows = ref<MonitorPointView[]>([])
@@ -272,12 +273,7 @@ onMounted(async () => {
               </table>
             </div>
 
-            <div class="equipment-pagination monitor-pagination">
-              <span>共{{ total }}条</span>
-              <button type="button" aria-label="上一页" @click="changePage(page - 1)">‹</button>
-              <button class="active" type="button">{{ page }}</button>
-              <button type="button" aria-label="下一页" @click="changePage(page + 1)">›</button>
-            </div>
+            <AppPagination :page="page" :total="total" :page-size="pageSize" @change="changePage" />
           </section>
         </section>
 

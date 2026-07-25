@@ -10,7 +10,8 @@
 .equipment-content {
   height: calc(100vh - 58px);
   padding: 18px 20px;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .equipment-stack {
@@ -183,10 +184,15 @@
 }
 
 .record-table-body {
+  min-height: 0;
   overflow: auto !important;
+  scrollbar-gutter: stable;
 }
 
 .record-table-body .equipment-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   height: 36px;
 }
 
@@ -281,6 +287,8 @@
 
 .equipment-pagination {
   display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   justify-content: flex-end;
@@ -289,6 +297,7 @@
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 800;
+  background: #fff;
   border-top: 1px solid var(--line-soft);
 }
 
@@ -305,6 +314,12 @@
   background: #fff;
   border: 1px solid var(--line-strong);
   border-radius: 8px;
+}
+
+.equipment-pagination button:disabled {
+  color: #a8b3c3;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 
 .equipment-pagination button.active {

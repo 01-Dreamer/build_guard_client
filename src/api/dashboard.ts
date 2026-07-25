@@ -146,6 +146,26 @@ function buildRiskStats(overview: BackendDashboardOverview): DashboardRiskStat[]
   return Array.from(grouped.entries()).map(([label, value]) => ({ label, value }))
 }
 
+function normalizeSprayMode(value?: string | null) {
+  const mode = value?.trim()
+  if (!mode) return '-'
+  const modeMap: Record<string, string> = {
+    start: '开始',
+    started: '开始',
+    open: '开启',
+    on: '开启',
+    stop: '停止',
+    stopped: '停止',
+    close: '关闭',
+    off: '关闭',
+    auto: '自动',
+    manual: '手动',
+    schedule: '定时',
+    alarm: '报警联动'
+  }
+  return modeMap[mode.toLowerCase()] || mode
+}
+
 export function getDashboardOverview() {
   return Promise.all([
     get<BackendDashboardOverview>('/dashboard/overview'),
@@ -169,7 +189,7 @@ export function getDashboardOverview() {
     sprayLogs: (sprayRecords.records || []).map((record) => ({
       id: record.id,
       content: record.sprayDeviceName || record.taskName || '喷淋设备',
-      mode: record.operationType || record.triggerType || '-',
+      mode: normalizeSprayMode(record.operationType || record.triggerType),
       time: record.startedAt || '-'
     })),
     riskStats: buildRiskStats(overview)

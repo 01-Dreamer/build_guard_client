@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { listEnvironmentHistory, type EnvironmentHistoryRecord } from '../../api/environment'
+import AppPagination from '../../components/AppPagination.vue'
 import AppTopbar from '../../components/AppTopbar.vue'
 import { useResponsivePageSize } from '../../composables/useResponsivePageSize'
 import { formatDateTime } from '../../utils/format'
@@ -123,13 +124,7 @@ onMounted(loadRecords)
               </tbody>
             </table>
           </div>
-          <footer class="equipment-pagination">
-            <span class="count">共{{ totalRecords }}条　{{ pageSize }}条/页</span>
-            <button type="button" :disabled="currentPage <= 1" @click="changePage(currentPage - 1)">‹</button>
-            <button class="active" type="button">{{ currentPage }}</button>
-            <button v-if="totalPages > currentPage" type="button" @click="changePage(totalPages)">{{ totalPages }}</button>
-            <button type="button" :disabled="currentPage >= totalPages" @click="changePage(currentPage + 1)">›</button>
-          </footer>
+          <AppPagination :page="currentPage" :total="totalRecords" :page-size="pageSize" @change="changePage" />
         </section>
       </div>
     </section>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { markRaw, onMounted, ref } from 'vue'
 import { Monitor, TrendCharts } from '@element-plus/icons-vue'
-import { listDevices, type DeviceView } from '../../api/devices'
+import { getEquipmentOverview, type EquipmentOverviewDevice } from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
 import {
   equipmentMenuItems,
@@ -18,12 +18,21 @@ const overviewMenuPaths = [
 
 const overviewMenuItems = equipmentMenuItems.filter((item) => overviewMenuPaths.includes(item.path))
 const overviewDevices = ref<EquipmentDevice[]>([])
-const overviewStats = ref([
-  { label: '在线设备', value: '0', icon: Monitor, tone: '#3b82f6' },
-  { label: '报警总数', value: '0', icon: TrendCharts, tone: '#22c55e' },
-  { label: '预警总数', value: '0', icon: TrendCharts, tone: '#38bdf8' },
-  { label: '设备总数', value: '0', icon: Monitor, tone: '#f59e0b' }
-])
+const loadingOverview = ref(true)
+const overviewStats = ref(createOverviewStats())
+
+function createOverviewStats(values?: { online?: number; alarms?: number; warnings?: number; total?: number }) {
+  return [
+    { label: '在线设备', value: formatStat(values?.online), icon: markRaw(Monitor), tone: '#3b82f6' },
+    { label: '报警总数', value: formatStat(values?.alarms), icon: markRaw(TrendCharts), tone: '#ef4444' },
+    { label: '预警总数', value: formatStat(values?.warnings), icon: markRaw(TrendCharts), tone: '#f59e0b' },
+    { label: '设备总数', value: formatStat(values?.total), icon: markRaw(Monitor), tone: '#22c55e' }
+  ]
+}
+
+function formatStat(value?: number) {
+  return value === undefined ? '-' : String(value)
+}
 
 function normalizeDeviceType(typeName?: string | null) {
   const name = typeName || '其他'
@@ -35,12 +44,15 @@ function normalizeDeviceType(typeName?: string | null) {
 }
 
 function coordinateByIndex(index: number, axis: 'x' | 'y') {
-  const xValues = [66, 43, 28, 76, 55, 82, 18, 36, 62, 72]
-  const yValues = [34, 78, 66, 51, 72, 76, 58, 42, 24, 62]
-  return axis === 'x' ? xValues[index % xValues.length] : yValues[index % yValues.length]
+  const column = index % 4
+  const row = Math.floor(index / 4) % 3
+  return axis === 'x' ? 18 + column * 22 : 22 + row * 24
 }
 
-function toOverviewDevice(device: DeviceView, index: number): EquipmentDevice {
+function toOverviewDevice(device: EquipmentOverviewDevice, index: number): EquipmentDevice {
+  const alarm = (device.metrics || []).filter((metric) => metric.status === 'alarm').length
+  const warning = (device.metrics || []).filter((metric) => metric.status === 'warn').length
+
   return {
     name: device.name,
     code: device.code,
@@ -49,28 +61,27 @@ function toOverviewDevice(device: DeviceView, index: number): EquipmentDevice {
     online: device.onlineStatus === 1,
     x: device.x ?? coordinateByIndex(index, 'x'),
     y: device.y ?? coordinateByIndex(index, 'y'),
-    warning: 0,
-    alarm: 0
+    warning,
+    alarm
   }
 }
 
 async function loadOverviewDevices() {
+  loadingOverview.value = true
   try {
-    const result = await listDevices({ page: 1, pageSize: 100 })
-    overviewDevices.value = result.records.map(toOverviewDevice)
-    const total = overviewDevices.value.length
-    const online = overviewDevices.value.filter((device) => device.online).length
-    const warnings = overviewDevices.value.reduce((sum, device) => sum + device.warning, 0)
-    const alarms = overviewDevices.value.reduce((sum, device) => sum + device.alarm, 0)
-    overviewStats.value = [
-      { label: '在线设备', value: String(online), icon: Monitor, tone: '#3b82f6' },
-      { label: '报警总数', value: String(alarms), icon: TrendCharts, tone: '#22c55e' },
-      { label: '预警总数', value: String(warnings), icon: TrendCharts, tone: '#38bdf8' },
-      { label: '设备总数', value: String(total), icon: Monitor, tone: '#f59e0b' }
-    ]
+    const result = await getEquipmentOverview()
+    overviewDevices.value = result.devices.map(toOverviewDevice)
+    overviewStats.value = createOverviewStats({
+      online: result.online ?? 0,
+      alarms: result.totalAlarms ?? 0,
+      warnings: result.totalWarnings ?? 0,
+      total: result.total ?? 0
+    })
   } catch {
     overviewDevices.value = []
-    overviewStats.value = overviewStats.value.map((stat) => ({ ...stat, value: '0' }))
+    overviewStats.value = createOverviewStats({ online: 0, alarms: 0, warnings: 0, total: 0 })
+  } finally {
+    loadingOverview.value = false
   }
 }
 
@@ -102,12 +113,7 @@ onMounted(loadOverviewDevices)
 
           <section class="site-map equipment-panel" aria-label="施工设备点位总览">
             <div class="map-canvas">
-              <div class="building building-a" />
-              <div class="building building-b" />
-              <div class="building building-c" />
-              <div class="pit-area" />
-              <div class="road road-main" />
-              <div class="road road-cross" />
+              <div class="map-shade" />
               <button
                 v-for="device in overviewDevices"
                 :key="device.code"
@@ -117,8 +123,11 @@ onMounted(loadOverviewDevices)
                 type="button"
                 :title="`${device.name} ${device.online ? '在线' : '离线'}`"
               >
-                <span />
-                <strong>{{ device.type }}</strong>
+                <i />
+                <span>
+                  <strong>{{ device.type }}</strong>
+                  <em>{{ device.code }}</em>
+                </span>
               </button>
             </div>
           </section>
@@ -160,7 +169,7 @@ onMounted(loadOverviewDevices)
                   <em :class="{ offline: !device.online }">{{ device.online ? '运行' : '离线' }}</em>
                 </div>
                 <div v-if="!overviewDevices.length" class="runtime-row">
-                  <strong>暂无设备数据</strong>
+                  <strong>{{ loadingOverview ? '设备数据加载中' : '暂无设备数据' }}</strong>
                   <span>-</span>
                   <em class="offline">-</em>
                 </div>
@@ -178,6 +187,7 @@ onMounted(loadOverviewDevices)
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr) 360px;
   gap: 14px;
+  height: 100%;
   min-height: 0;
 }
 
@@ -217,6 +227,7 @@ onMounted(loadOverviewDevices)
 
 .site-map {
   padding: 0;
+  overflow: hidden;
   background: #f8fbff;
 }
 
@@ -227,110 +238,95 @@ onMounted(loadOverviewDevices)
   min-height: 640px;
   overflow: hidden;
   background:
-    linear-gradient(135deg, rgba(248, 250, 252, 0.94), rgba(241, 245, 249, 0.72)),
-    repeating-linear-gradient(45deg, transparent 0 26px, rgba(148, 163, 184, 0.08) 26px 27px);
+    linear-gradient(90deg, rgba(247, 250, 252, 0.05), rgba(247, 250, 252, 0.16)),
+    url("/images/equipment-overview-map.png") center / cover no-repeat;
 }
 
-.building,
-.pit-area,
-.road {
+.map-canvas::before {
   position: absolute;
-  border: 1px solid #d7dee9;
-  transform: rotate(-16deg);
-}
-
-.building {
-  background: linear-gradient(135deg, #fff, #e9eef5);
-  box-shadow: 18px 22px 34px rgba(15, 23, 42, 0.1);
-}
-
-.building::after {
-  position: absolute;
-  inset: 10px;
+  inset: 0;
+  pointer-events: none;
   content: "";
   background:
-    repeating-linear-gradient(90deg, transparent 0 38px, rgba(49, 71, 104, 0.2) 38px 42px),
-    repeating-linear-gradient(0deg, transparent 0 34px, rgba(49, 71, 104, 0.14) 34px 38px);
+    linear-gradient(180deg, rgba(10, 20, 35, 0.04), rgba(10, 20, 35, 0.18)),
+    radial-gradient(circle at 52% 48%, transparent 0 42%, rgba(15, 23, 42, 0.08) 75%);
 }
 
-.building-a {
-  left: 17%;
-  top: 7%;
-  width: 42%;
-  height: 31%;
-}
-
-.building-b {
-  right: 8%;
-  top: 15%;
-  width: 20%;
-  height: 34%;
-}
-
-.building-c {
-  right: 14%;
-  bottom: 9%;
-  width: 36%;
-  height: 23%;
-}
-
-.pit-area {
-  left: 8%;
-  bottom: 13%;
-  width: 31%;
-  height: 30%;
-  background:
-    linear-gradient(135deg, rgba(245, 158, 11, 0.26), rgba(217, 119, 6, 0.08)),
-    repeating-linear-gradient(90deg, rgba(120, 53, 15, 0.24) 0 8px, transparent 8px 24px);
-  border-color: rgba(180, 83, 9, 0.26);
-}
-
-.road {
-  background: rgba(226, 232, 240, 0.9);
-  border-color: transparent;
-}
-
-.road-main {
-  left: 15%;
-  top: 45%;
-  width: 76%;
-  height: 8%;
-}
-
-.road-cross {
-  left: 45%;
-  top: 28%;
-  width: 8%;
-  height: 55%;
+.map-shade {
+  position: absolute;
+  inset: 18px;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.06),
+    inset 0 -90px 110px rgba(15, 23, 42, 0.06);
 }
 
 .device-pin {
   position: absolute;
-  display: grid;
-  gap: 2px;
-  width: 48px;
-  height: 54px;
-  place-items: center;
+  z-index: 3;
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 84px;
+  height: 36px;
+  padding: 0 10px 0 5px;
   color: #f97316;
   cursor: pointer;
-  background: transparent;
-  border: 0;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  box-shadow:
+    0 12px 26px rgba(15, 23, 42, 0.16),
+    inset 0 0 0 1px rgba(15, 23, 42, 0.04);
   transform: translate(-50%, -50%);
+  backdrop-filter: blur(8px);
 }
 
-.device-pin span {
-  width: 28px;
-  height: 28px;
+.device-pin i {
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 26px;
   background: currentColor;
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
   box-shadow: 0 10px 20px rgba(249, 115, 22, 0.24);
 }
 
+.device-pin i::after {
+  position: absolute;
+  inset: 8px;
+  content: "";
+  background: #fff;
+  clip-path: inherit;
+}
+
+.device-pin span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  text-align: left;
+}
+
+.device-pin strong,
+.device-pin em {
+  overflow: hidden;
+  max-width: 72px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .device-pin strong {
-  color: currentColor;
+  color: #26364f;
   font-size: 11px;
   line-height: 1;
-  text-shadow: 0 1px 0 #fff;
+}
+
+.device-pin em {
+  color: #64748b;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
 }
 
 .device-pin.升降机 {
@@ -349,7 +345,7 @@ onMounted(loadOverviewDevices)
   color: #ef4444;
 }
 
-.device-pin.alarm span {
+.device-pin.alarm i {
   animation: pulse 1.4s infinite;
 }
 

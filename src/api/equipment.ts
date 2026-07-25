@@ -16,6 +16,62 @@ export interface EquipmentRealtimePoint {
   [key: string]: string | number | null | undefined
 }
 
+export interface EquipmentAlarmTrendPoint {
+  time?: string | null
+  values?: {
+    alarm?: number | string | null
+    warning?: number | string | null
+    [key: string]: number | string | null | undefined
+  }
+}
+
+export interface EquipmentAlarmTypeSummary {
+  code: string
+  name: string
+  value: number | string
+  unit?: string | null
+  status?: string | null
+}
+
+export interface EquipmentOverviewDevice {
+  id?: number
+  name: string
+  code: string
+  typeCode?: string | null
+  typeName?: string | null
+  locationName?: string | null
+  onlineStatus?: number | string | null
+  x?: number | null
+  y?: number | null
+  metrics?: Array<{
+    code: string
+    name: string
+    value: number | string
+    unit?: string | null
+    status?: string | null
+  }>
+}
+
+export interface EquipmentOverview {
+  total: number
+  online: number
+  totalAlarms?: number | null
+  totalWarnings?: number | null
+  towerCranes: number
+  elevators: number
+  formworks: number
+  deepPits: number
+  devices: EquipmentOverviewDevice[]
+  latestAlarms: Array<{
+    id: number
+    alarmType?: string | null
+    alarmLevel?: string | null
+    deviceId?: number | null
+    deviceName?: string | null
+    deviceCode?: string | null
+  }>
+}
+
 export interface EquipmentDashboard {
   devices?: Array<{ id?: number; name: string; code: string; onlineStatus?: number | string | null }>
   info?: EquipmentInfoItem[]
@@ -81,11 +137,27 @@ function metricLabel(metric: BackendMetric) {
   return metric.name || metric.code
 }
 
+function normalizeUnit(unit?: string | null) {
+  const value = unit?.trim()
+  if (!value) return value
+  const unitMap: Record<string, string> = {
+    person: '人',
+    persons: '人',
+    C: '℃',
+    c: '℃',
+    'ug/m3': 'μg/m³',
+    'μg/m3': 'μg/m³',
+    'ug/m³': 'μg/m³',
+    deg: '°'
+  }
+  return unitMap[value] || value
+}
+
 function toMetric(metric: BackendMetric): EquipmentMetric {
   return {
     label: metricLabel(metric),
     value: metric.value,
-    unit: metric.unit
+    unit: normalizeUnit(metric.unit)
   }
 }
 
@@ -161,6 +233,18 @@ export function getFormworkDashboard(deviceCode?: string) {
 
 export function getDeepPitDashboard(deviceCode?: string) {
   return get<PageResult<BackendDeviceMonitor>>('/construction-devices/deep-pits', { deviceCode }).then(transformDashboard)
+}
+
+export function getEquipmentOverview() {
+  return get<EquipmentOverview>('/construction-devices/overview')
+}
+
+export function getConstructionAlarmTrend(typeCode?: string) {
+  return get<EquipmentAlarmTrendPoint[]>('/construction-devices/alarm-trend', { typeCode })
+}
+
+export function getConstructionAlarmTypeSummary(typeCode?: string) {
+  return get<EquipmentAlarmTypeSummary[]>('/construction-devices/alarm-type-summary', { typeCode })
 }
 
 export function listEquipmentWorkRecords<T>(type: string, query: object = {}) {

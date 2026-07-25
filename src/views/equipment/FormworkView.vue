@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { DataAnalysis, Memo } from '@element-plus/icons-vue'
-import { getFormworkDashboard, type EquipmentDashboard } from '../../api/equipment'
+import {
+  getConstructionAlarmTypeSummary,
+  getConstructionAlarmTrend,
+  getFormworkDashboard,
+  type EquipmentAlarmTypeSummary,
+  type EquipmentAlarmTrendPoint,
+  type EquipmentDashboard
+} from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
 import { usePolling } from '../../composables/usePolling'
 import Equipment3DModel from '../../components/equipment/Equipment3DModel.vue'
@@ -10,6 +17,8 @@ import { formatDateTime } from '../../utils/format'
 import { alarmTrendOption, pieOption } from './chartOptions'
 
 const dashboard = ref<EquipmentDashboard>({})
+const alarmTrend = ref<EquipmentAlarmTrendPoint[]>([])
+const alarmTypeSummary = ref<EquipmentAlarmTypeSummary[]>([])
 const tabs = computed(() => (dashboard.value.devices || []).map((device) => device.name))
 const activeDevice = computed(() => dashboard.value.devices?.[0])
 const formworkRows = computed(() =>
@@ -30,6 +39,11 @@ const settlementRows = computed(() =>
     status: row.status || '-'
   }))
 )
+const modelReadouts = computed(() => [
+  readoutValue(['电量', 'battery'], '设备电量'),
+  readoutValue(['倾斜', 'X轴倾斜', 'Y轴倾斜', 'xAngle', 'yAngle'], '倾斜状态'),
+  readoutValue(['压力', 'pressure'], '压力值')
+])
 
 function splitDateTime(value?: string | number | Date | null) {
   const formatted = formatDateTime(value)
@@ -37,11 +51,31 @@ function splitDateTime(value?: string | number | Date | null) {
   return { date, time }
 }
 
+function readoutValue(keywords: string[], label: string) {
+  const row = formworkRows.value.find((item) =>
+    keywords.some((keyword) => item.name.toLowerCase().includes(keyword.toLowerCase()))
+  )
+  const unit = row?.unit && row.unit !== '-' ? ` ${row.unit}` : ''
+  return {
+    label,
+    value: row ? `${row.value}${unit}` : '-'
+  }
+}
+
 async function loadFormworkDashboard() {
   try {
-    dashboard.value = await getFormworkDashboard()
+    const [dashboardResult, trendResult, typeSummaryResult] = await Promise.all([
+      getFormworkDashboard(),
+      getConstructionAlarmTrend('formwork'),
+      getConstructionAlarmTypeSummary('formwork')
+    ])
+    dashboard.value = dashboardResult
+    alarmTrend.value = trendResult
+    alarmTypeSummary.value = typeSummaryResult
   } catch {
     dashboard.value = {}
+    alarmTrend.value = []
+    alarmTypeSummary.value = []
   }
 }
 
@@ -157,10 +191,14 @@ onMounted(() => {
             </nav>
 
             <div class="model-wrap">
-              <Equipment3DModel model="formwork" />
-              <div class="model-label label-one">设备电量<br />78 w/h</div>
-              <div class="model-label label-two">倾斜状态<br />1</div>
-              <div class="model-label label-three">压力值<br />6.21 kPa</div>
+              <div class="model-scene">
+                <Equipment3DModel model="formwork" />
+              </div>
+              <div class="model-readouts">
+                <div v-for="item in modelReadouts" :key="item.label" class="model-label">
+                  {{ item.label }}<br />{{ item.value }}
+                </div>
+              </div>
               <div class="legend-row">
                 <span class="blue" />正常值
                 <span class="yellow" />超出预警值
@@ -170,8 +208,8 @@ onMounted(() => {
           </section>
 
           <aside class="structure-right">
-            <EquipmentChart title="一周预警报警数据" :option="alarmTrendOption()" />
-            <EquipmentChart title="累计报警类型占比" :option="pieOption(['设备电量超上限', '沉降超下限报警', '沉降超上限报警', '电池状态超下限', '倾斜状态超上限', '传感器状态'])" />
+            <EquipmentChart title="一周预警报警数据" :option="alarmTrendOption(alarmTrend)" />
+            <EquipmentChart title="累计报警类型占比" :option="pieOption(alarmTypeSummary)" />
           </aside>
         </section>
       </div>
@@ -225,52 +263,69 @@ onMounted(() => {
 
 .model-wrap {
   position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: linear-gradient(180deg, #fbfdff, #f4f8ff);
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(242, 247, 255, 0.96)),
+    radial-gradient(circle at 44% 36%, rgba(47, 111, 237, 0.12), transparent 44%);
   border: 1px solid #e6eefb;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+}
+
+.model-scene {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   border-radius: 8px;
 }
 
-.model-wrap :deep(.equipment-3d-model) {
+.model-scene :deep(.equipment-3d-model) {
   min-height: 0;
 }
 
+.model-readouts {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
 .model-label {
-  position: absolute;
-  color: #111827;
+  min-width: 0;
+  padding: 9px 11px;
+  color: #24324a;
   font-size: 14px;
   font-weight: 900;
-  text-align: center;
-  text-shadow: 0 1px 0 #fff;
-}
-
-.label-one {
-  left: 35%;
-  top: 33%;
-}
-
-.label-two {
-  left: 45%;
-  top: 42%;
-}
-
-.label-three {
-  left: 45%;
-  top: 64%;
+  line-height: 1.28;
+  text-align: left;
+  text-shadow: none;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 8px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(9px);
 }
 
 .legend-row {
-  position: absolute;
-  left: 12px;
-  bottom: 10px;
+  grid-column: 1 / -1;
   display: flex;
   gap: 10px;
   align-items: center;
   color: #475569;
   font-size: 13px;
   font-weight: 900;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(226, 232, 240, 0.76);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
 }
 
 .legend-row span {

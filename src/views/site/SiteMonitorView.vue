@@ -142,7 +142,7 @@ onMounted(() => {
                 <el-icon>
                   <VideoCamera />
                 </el-icon>
-                {{ card.hasStream ? 'LIVE' : card.online ? 'WAIT' : 'OFF' }}
+                {{ card.hasStream ? '直播' : card.online ? '等待' : '离线' }}
               </span>
             </div>
           </article>

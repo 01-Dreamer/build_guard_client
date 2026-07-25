@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { Bottom, DataLine, Odometer, Top, User, Warning } from '@element-plus/icons-vue'
-import { getElevatorDashboard, type EquipmentDashboard, type EquipmentInfoItem, type EquipmentMetric } from '../../api/equipment'
+import {
+  getConstructionAlarmTrend,
+  getElevatorDashboard,
+  type EquipmentAlarmTrendPoint,
+  type EquipmentDashboard,
+  type EquipmentInfoItem,
+  type EquipmentMetric
+} from '../../api/equipment'
 import AppTopbar from '../../components/AppTopbar.vue'
 import { usePolling } from '../../composables/usePolling'
 import EquipmentChart from '../../components/equipment/EquipmentChart.vue'
+import Equipment3DModel from '../../components/equipment/Equipment3DModel.vue'
 import { formatDateTime } from '../../utils/format'
 import { alarmTrendOption, lineOption } from './chartOptions'
 
 const dashboard = ref<EquipmentDashboard>({})
+const alarmTrend = ref<EquipmentAlarmTrendPoint[]>([])
 const elevatorTabs = computed(() => (dashboard.value.devices || []).map((device) => device.name))
 const activeDevice = computed(() => dashboard.value.devices?.[0])
 const elevatorInfo = computed(() =>
@@ -54,9 +63,15 @@ function splitDateTime(value?: string | number | Date | null) {
 
 async function loadElevatorDashboard() {
   try {
-    dashboard.value = await getElevatorDashboard()
+    const [dashboardResult, trendResult] = await Promise.all([
+      getElevatorDashboard(),
+      getConstructionAlarmTrend('elevator')
+    ])
+    dashboard.value = dashboardResult
+    alarmTrend.value = trendResult
   } catch {
     dashboard.value = {}
+    alarmTrend.value = []
   }
 }
 
@@ -100,7 +115,7 @@ onMounted(() => {
               </div>
             </section>
 
-            <EquipmentChart title="报警趋势" :option="alarmTrendOption()" />
+            <EquipmentChart title="报警趋势" :option="alarmTrendOption(alarmTrend)" />
 
             <section class="equipment-panel">
               <h2>设备信息</h2>
@@ -138,28 +153,19 @@ onMounted(() => {
                 <span>设备编号 <strong>{{ activeDevice?.code || '-' }}</strong></span>
                 <span class="data-time" :title="reportedAt">
                   数据获取时间
-                  <strong>{{ reportedAtParts.date }}<b v-if="reportedAtParts.time"> {{ reportedAtParts.time }}</b></strong>
+                  <strong>
+                    <em>{{ reportedAtParts.date }}</em>
+                    <b v-if="reportedAtParts.time">{{ reportedAtParts.time }}</b>
+                  </strong>
                 </span>
               </div>
 
-              <div class="status-column left">
-                <article v-for="card in statusCards.slice(0, 2)" :key="card.label" class="sensor-card">
-                  <el-icon>
-                    <component :is="card.icon" />
-                  </el-icon>
-                  <span>{{ card.label }}</span>
-                  <strong>{{ card.value }}</strong>
-                </article>
+              <div class="elevator-model-wrap">
+                <Equipment3DModel model="elevator" />
               </div>
 
-              <div class="elevator-shaft">
-                <div class="shaft-rail" />
-                <div class="cab" />
-                <div class="counterweight" />
-              </div>
-
-              <div class="status-column right">
-                <article v-for="card in statusCards.slice(2)" :key="card.label" class="sensor-card">
+              <div class="status-column">
+                <article v-for="card in statusCards" :key="card.label" class="sensor-card">
                   <el-icon>
                     <component :is="card.icon" />
                   </el-icon>
@@ -284,27 +290,33 @@ onMounted(() => {
 .elevator-scene {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 170px minmax(150px, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 0.42fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 14px;
-  align-items: center;
   min-height: 0;
   overflow: hidden;
-  padding: 42px 20px 20px;
-  background: linear-gradient(180deg, #fbfdff, #f7faff);
+  padding: 16px 20px 20px;
+  background:
+    linear-gradient(180deg, rgba(251, 253, 255, 0.98), rgba(245, 248, 255, 0.96)),
+    radial-gradient(circle at 42% 34%, rgba(47, 111, 237, 0.14), transparent 42%);
   border: 1px solid #e6eefb;
   border-radius: 8px;
 }
 
 .device-meta {
-  position: absolute;
-  top: 16px;
-  left: 24px;
+  grid-column: 1 / -1;
   display: flex;
-  right: 24px;
   flex-wrap: wrap;
   gap: 8px 26px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 12px;
   color: #64748b;
   font-weight: 900;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(203, 213, 225, 0.78);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
 }
 
 .device-meta strong {
@@ -313,41 +325,67 @@ onMounted(() => {
 }
 
 .device-meta .data-time strong {
+  display: inline-flex;
+  gap: 12px;
+  align-items: baseline;
   color: #6d95ff;
   font-family: "DIN Alternate", "Roboto Mono", Consolas, monospace;
   letter-spacing: 0;
+}
+
+.device-meta .data-time em {
+  color: #6d95ff;
+  font-style: normal;
 }
 
 .device-meta .data-time b {
   color: #2f3f58;
 }
 
+.elevator-model-wrap {
+  grid-row: 2;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #e2eaf6;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.74);
+}
+
+.elevator-model-wrap :deep(.equipment-3d-model) {
+  min-height: 0;
+  border: 0;
+}
+
 .status-column {
   display: grid;
-  gap: 18px;
+  grid-row: 2;
+  align-content: stretch;
+  gap: 10px;
+  min-height: 0;
 }
 
 .sensor-card {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
+  grid-template-columns: 38px minmax(0, 1fr);
   gap: 4px 10px;
   align-items: center;
-  min-height: 86px;
-  padding: 14px;
-  background: #fff;
+  min-height: 0;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid #e6eefb;
   border-radius: 8px;
   box-shadow: 0 12px 24px rgba(59, 130, 246, 0.08);
+  backdrop-filter: blur(8px);
 }
 
 .sensor-card .el-icon {
   grid-row: 1 / 3;
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   place-items: center;
   color: #60a5fa;
-  font-size: 22px;
+  font-size: 20px;
   background: #eaf2ff;
   border-radius: 50%;
 }
@@ -363,60 +401,9 @@ onMounted(() => {
 .sensor-card strong {
   overflow: hidden;
   color: #6d95ff;
-  font-size: 18px;
+  font-size: 17px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.elevator-shaft {
-  position: relative;
-  height: 330px;
-}
-
-.shaft-rail {
-  position: absolute;
-  left: 50%;
-  bottom: 12px;
-  width: 38px;
-  height: 286px;
-  background:
-    repeating-linear-gradient(45deg, transparent 0 16px, rgba(255, 255, 255, 0.94) 16px 20px),
-    #7db0ff;
-  border: 3px solid #3f6fed;
-  transform: translateX(-50%);
-}
-
-.shaft-rail::before {
-  position: absolute;
-  left: -36px;
-  right: -36px;
-  bottom: -8px;
-  height: 8px;
-  content: "";
-  background: #7db0ff;
-  border-radius: 999px;
-}
-
-.cab,
-.counterweight {
-  position: absolute;
-  background: #fbbf24;
-  border: 3px solid #f59e0b;
-  border-radius: 4px;
-}
-
-.cab {
-  right: 24px;
-  top: 154px;
-  width: 52px;
-  height: 68px;
-}
-
-.counterweight {
-  left: 24px;
-  top: 76px;
-  width: 48px;
-  height: 64px;
 }
 
 .bottom-status {

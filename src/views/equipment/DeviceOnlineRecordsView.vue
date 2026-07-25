@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { listDeviceOnlineRecords, type DeviceOnlineRecordView } from '../../api/devices'
+import AppPagination from '../../components/AppPagination.vue'
 import AppTopbar from '../../components/AppTopbar.vue'
 import { useResponsivePageSize } from '../../composables/useResponsivePageSize'
 import { formatDateTime } from '../../utils/format'
@@ -49,6 +50,13 @@ function resetFilters() {
   filters.startTime = ''
   filters.endTime = ''
   searchRecords()
+}
+
+function changePage(nextPage: number) {
+  const normalizedPage = Math.min(Math.max(1, nextPage), totalPages.value)
+  if (normalizedPage === currentPage.value) return
+  currentPage.value = normalizedPage
+  loadRecords()
 }
 
 watch(pageSize, searchRecords)
@@ -139,12 +147,7 @@ onMounted(loadRecords)
             </table>
           </div>
 
-          <footer class="equipment-pagination">
-            <span class="count">共{{ totalRecords }}条　{{ pageSize }}条/页</span>
-            <button class="active" type="button">1</button>
-            <button type="button">{{ totalPages }}</button>
-            <button type="button">›</button>
-          </footer>
+          <AppPagination :page="currentPage" :total="totalRecords" :page-size="pageSize" @change="changePage" />
         </section>
       </div>
     </section>

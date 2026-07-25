@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { listAiMonitorRules, type CameraView } from '../../api/site'
+import AppPagination from '../../components/AppPagination.vue'
 import AppTopbar from '../../components/AppTopbar.vue'
 
 interface DeviceRule {
@@ -15,6 +16,8 @@ interface DeviceRule {
 
 const rawRules = ref<CameraView[]>([])
 const filters = reactive({ name: '', code: '' })
+const page = ref(1)
+const pageSize = 10
 const rules = computed<DeviceRule[]>(() =>
   rawRules.value.map((rule) => ({
     id: rule.id,
@@ -77,60 +80,58 @@ onMounted(loadRules)
       </section>
 
       <section class="table-card">
-        <table>
-          <colgroup>
-            <col class="col-index" />
-            <col class="col-name" />
-            <col class="col-code" />
-            <col class="col-stream" />
-            <col class="col-category" />
-            <col class="col-status" />
-            <col class="col-action" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>序号</th>
-              <th>设备名称</th>
-              <th>设备编号</th>
-              <th>推流码</th>
-              <th>AI识别类别</th>
-              <th>设备状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="rule in rules" :key="rule.id">
-              <td>{{ rule.id }}</td>
-              <td :title="rule.name">
-                <strong>{{ rule.name }}</strong>
-              </td>
-              <td :title="rule.code">{{ rule.code }}</td>
-              <td :title="rule.stream">{{ rule.stream }}</td>
-              <td class="category-cell" :title="rule.categories">{{ rule.categories }}</td>
-              <td>
-                <span
-                  class="status-tag"
-                  :class="{ offline: rule.status === '离线' }"
-                  :title="rule.status"
-                >
-                  {{ rule.status }}
-                </span>
-              </td>
-              <td>
-                <button class="link-btn" type="button">修改</button>
-              </td>
-            </tr>
-            <tr v-if="!rules.length">
-              <td colspan="7">暂无风险识别设置</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="settings-table-body">
+          <table>
+            <colgroup>
+              <col class="col-index" />
+              <col class="col-name" />
+              <col class="col-code" />
+              <col class="col-stream" />
+              <col class="col-category" />
+              <col class="col-status" />
+              <col class="col-action" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>序号</th>
+                <th>设备名称</th>
+                <th>设备编号</th>
+                <th>推流码</th>
+                <th>AI识别类别</th>
+                <th>设备状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="rule in rules" :key="rule.id">
+                <td>{{ rule.id }}</td>
+                <td :title="rule.name">
+                  <strong>{{ rule.name }}</strong>
+                </td>
+                <td :title="rule.code">{{ rule.code }}</td>
+                <td :title="rule.stream">{{ rule.stream }}</td>
+                <td class="category-cell" :title="rule.categories">{{ rule.categories }}</td>
+                <td>
+                  <span
+                    class="status-tag"
+                    :class="{ offline: rule.status === '离线' }"
+                    :title="rule.status"
+                  >
+                    {{ rule.status }}
+                  </span>
+                </td>
+                <td>
+                  <button class="link-btn" type="button">修改</button>
+                </td>
+              </tr>
+              <tr v-if="!rules.length">
+                <td colspan="7">暂无风险识别设置</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-        <footer class="pagination">
-          <button type="button">‹</button>
-          <button class="active" type="button">1</button>
-          <button type="button">›</button>
-        </footer>
+        <AppPagination :page="page" :total="rules.length" :page-size="pageSize" @change="page = $event" />
       </section>
     </section>
   </main>
@@ -150,7 +151,8 @@ onMounted(loadRules)
   gap: 14px;
   height: calc(100vh - 54px);
   padding: 16px 28px 14px;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .breadcrumb {
@@ -233,10 +235,17 @@ onMounted(loadRules)
 }
 
 .table-card {
-  align-self: start;
-  display: block;
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.settings-table-body {
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 table {
@@ -283,6 +292,9 @@ td {
 }
 
 th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   color: #64748b;
   font-size: 13px;
   font-weight: 800;
@@ -339,9 +351,15 @@ td strong {
 
 .pagination {
   display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
   justify-content: flex-end;
-  padding: 10px 24px;
+  min-height: 54px;
+  padding: 10px 24px 12px;
+  background: #fff;
+  border-top: 1px solid #edf1f6;
 }
 
 .pagination button {
@@ -352,6 +370,12 @@ td strong {
   background: #fff;
   border: 1px solid #dbe3ee;
   border-radius: 5px;
+}
+
+.pagination button:disabled {
+  color: #a8b3c3;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 
 .pagination .active {

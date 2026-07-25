@@ -4,6 +4,7 @@ import { Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { listPersonnel, type PersonnelView } from '../../api/personnel'
 import { listAiRiskRecords, reviewAiRiskRecord, type AiRiskRecordView } from '../../api/site'
+import AppPagination from '../../components/AppPagination.vue'
 import AppTopbar from '../../components/AppTopbar.vue'
 import { formatDateTime } from '../../utils/format'
 
@@ -39,6 +40,10 @@ const reviewForm = reactive({
   decision: 'approve' as 'approve' | 'reject',
   remark: ''
 })
+
+function personOptionText(person: PersonnelView) {
+  return `${person.name}（ID: ${person.id}）`
+}
 
 const records = computed<RiskRecord[]>(() =>
   rawRecords.value.map((record) => {
@@ -157,6 +162,12 @@ function nextPage() {
   loadRecords()
 }
 
+function changePage(next: number) {
+  if (next === page.value) return
+  page.value = next
+  loadRecords()
+}
+
 onMounted(async () => {
   await Promise.all([loadRecords(), loadPersonnelOptions()])
 })
@@ -267,12 +278,7 @@ onMounted(async () => {
           </table>
         </div>
 
-        <footer class="pagination">
-          <span class="count">共 {{ total }} 条</span>
-          <button type="button" :disabled="page <= 1" @click="previousPage">‹</button>
-          <button class="active" type="button">{{ page }}</button>
-          <button type="button" :disabled="page * pageSize >= total" @click="nextPage">›</button>
-        </footer>
+        <AppPagination :page="page" :total="total" :page-size="pageSize" @change="changePage" />
       </section>
     </section>
 
@@ -302,7 +308,7 @@ onMounted(async () => {
               <select v-model.number="reviewForm.personnelId" :disabled="reviewForm.decision === 'reject'">
                 <option :value="null">待确认</option>
                 <option v-for="person in personnelOptions" :key="person.id" :value="person.id">
-                  {{ person.name }}
+                  {{ personOptionText(person) }}
                 </option>
               </select>
             </label>
@@ -345,7 +351,8 @@ onMounted(async () => {
   gap: 14px;
   height: calc(100vh - 58px);
   padding: 16px 28px 14px;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .breadcrumb {
@@ -473,6 +480,7 @@ onMounted(async () => {
 .risk-table-body {
   min-height: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 table {
@@ -522,6 +530,9 @@ td {
 }
 
 th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   height: 42px;
   color: #64748b;
   font-size: 13px;
@@ -608,11 +619,14 @@ td {
 
 .pagination {
   display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
   justify-content: flex-end;
-  min-height: 54px;
-  padding: 8px 24px 12px;
+  min-height: 58px;
+  padding: 10px 24px 12px;
+  background: #fff;
   border-top: 1px solid #edf1f6;
 }
 
@@ -630,6 +644,12 @@ td {
   background: #fff;
   border: 1px solid #dbe3ee;
   border-radius: 6px;
+}
+
+.pagination button:disabled {
+  color: #a8b3c3;
+  cursor: not-allowed;
+  background: #f8fafc;
 }
 
 .pagination .active {

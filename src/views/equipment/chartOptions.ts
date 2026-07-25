@@ -1,4 +1,5 @@
 import type { EChartsOption } from 'echarts'
+import type { EquipmentAlarmTrendPoint, EquipmentAlarmTypeSummary } from '../../api/equipment'
 
 const axisLabel = {
   color: '#64748b',
@@ -45,14 +46,46 @@ export function lineOption(
   }
 }
 
-export function alarmTrendOption(): EChartsOption {
+function shortDate(value?: string | null) {
+  if (!value) return '-'
+  const normalized = String(value)
+  const match = normalized.match(/(\d{4})-(\d{2})-(\d{2})/)
+  if (match) return `${match[2]}-${match[3]}`
+  return normalized.slice(0, 5)
+}
+
+function emptyTrend() {
+  const now = new Date()
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(now)
+    date.setDate(now.getDate() - 6 + index)
+    return {
+      time: date.toISOString().slice(0, 10),
+      values: { alarm: 0, warning: 0 }
+    }
+  })
+}
+
+export function alarmTrendOption(points: EquipmentAlarmTrendPoint[] = []): EChartsOption {
+  const trendPoints = points.length ? points : emptyTrend()
+  const labels = trendPoints.map((point) => shortDate(point.time))
+  const alarms = trendPoints.map((point) => Number(point.values?.alarm ?? 0))
+  const warnings = trendPoints.map((point) => Number(point.values?.warning ?? 0))
+
   return {
-    grid: { left: 8, right: 10, top: 28, bottom: 8, containLabel: true },
+    grid: { left: 8, right: 10, top: 28, bottom: 34, containLabel: true },
     tooltip: { trigger: 'axis' },
-    legend: { bottom: 0, itemWidth: 10, itemHeight: 10, textStyle: axisLabel },
+    legend: {
+      bottom: 2,
+      left: 'center',
+      itemWidth: 10,
+      itemHeight: 10,
+      itemGap: 18,
+      textStyle: axisLabel
+    },
     xAxis: {
       type: 'category',
-      data: ['11-25', '11-26', '11-27', '11-28', '11-29', '11-30', '12-01'],
+      data: labels,
       axisTick: { show: false },
       axisLine: { lineStyle: { color: '#e5e7eb' } },
       axisLabel
@@ -67,7 +100,7 @@ export function alarmTrendOption(): EChartsOption {
         name: '报警数量',
         type: 'line',
         smooth: true,
-        data: [0, 0, 1, 9, 0, 0, 0],
+        data: alarms,
         lineStyle: { width: 3, color: '#ef4444' },
         itemStyle: { color: '#ef4444' },
         areaStyle: { color: '#ef444422' }
@@ -76,7 +109,7 @@ export function alarmTrendOption(): EChartsOption {
         name: '预警数量',
         type: 'line',
         smooth: true,
-        data: [0, 0, 0, 1, 0, 0, 0],
+        data: warnings,
         lineStyle: { width: 2, color: '#f59e0b' },
         itemStyle: { color: '#f59e0b' }
       }
@@ -84,7 +117,14 @@ export function alarmTrendOption(): EChartsOption {
   }
 }
 
-export function pieOption(labels: string[]): EChartsOption {
+export function pieOption(items: string[] | EquipmentAlarmTypeSummary[]): EChartsOption {
+  const data = items.map((item) =>
+    typeof item === 'string'
+      ? { name: item, value: 0 }
+      : { name: item.name || item.code, value: Number(item.value) || 0 }
+  )
+  const chartData = data.length ? data : [{ name: '暂无报警', value: 0 }]
+
   return {
     tooltip: { trigger: 'item' },
     series: [
@@ -92,10 +132,7 @@ export function pieOption(labels: string[]): EChartsOption {
         type: 'pie',
         radius: ['28%', '68%'],
         center: ['52%', '54%'],
-        data: labels.map((name, index) => ({
-          name,
-          value: [36, 22, 18, 10, 8, 6, 4][index] ?? 5
-        })),
+        data: chartData,
         label: {
           color: '#475569',
           fontSize: 11,
