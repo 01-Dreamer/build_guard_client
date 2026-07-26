@@ -117,7 +117,32 @@ export function listCameraVideos(query: object = {}) {
 
 function normalizeAssetUrl(url?: string | null) {
   if (!url) return null
-  if (/^(https?:)?\/\//.test(url) || url.startsWith('data:')) return url
+  if (url.startsWith('data:')) return url
+
+  if (/^https?:\/\//.test(url)) {
+    try {
+      const parsed = new URL(url)
+      const isLocalOrTunnel = ['110.41.166.11', '127.0.0.1', 'localhost'].includes(parsed.hostname)
+      if (location.protocol === 'https:' && isLocalOrTunnel) {
+        if (parsed.port === '18080') {
+          return `https://data.zxylearn.top${parsed.pathname}${parsed.search}${parsed.hash}`
+        }
+        if (parsed.port === '19100') {
+          return `https://data.zxylearn.top${parsed.pathname}${parsed.search}${parsed.hash}`
+        }
+        if (parsed.port === '19099') {
+          return `https://data.zxylearn.top/sim${parsed.pathname}${parsed.search}${parsed.hash}`
+        }
+      }
+    } catch {
+      return url
+    }
+    return url
+  }
+
+  if (url.startsWith('//')) {
+    return `${location.protocol}${url}`
+  }
 
   const apiRoot = API_BASE_URL.replace(/\/api\/?$/, '')
   const path = url.startsWith('/') ? url : `/${url}`

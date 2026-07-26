@@ -60,6 +60,10 @@ function goHome() {
   router.push('/')
 }
 
+function goAiChat() {
+  router.push('/ai-chat')
+}
+
 function handleSiteCommand(path: string) {
   router.push(path)
 }
@@ -256,6 +260,10 @@ function handleLogout() {
           </el-dropdown-menu>
         </template>
       </el-dropdown>
+
+      <button :class="{ active: route.path === '/ai-chat' }" type="button" @click="goAiChat">
+        BuildGuard 助手
+      </button>
     </nav>
 
     <div class="top-actions">
