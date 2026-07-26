@@ -19,7 +19,15 @@ import {
 } from '@element-plus/icons-vue'
 import AppTopbar from '../components/AppTopbar.vue'
 import { usePolling } from '../composables/usePolling'
-import { getDashboardOverview, type DashboardAlarm, type DashboardDeviceSummary, type DashboardMetric, type DashboardSprayLog } from '../api/dashboard'
+import {
+  getDashboardBaseOverview,
+  getDashboardDeviceSummaries,
+  getDashboardSprayLogs,
+  type DashboardAlarm,
+  type DashboardDeviceSummary,
+  type DashboardMetric,
+  type DashboardSprayLog
+} from '../api/dashboard'
 import heroUrl from '../assets/dashboard-hero.png'
 import { formatDateTime } from '../utils/format'
 
@@ -222,23 +230,41 @@ function formatSprayLog(log: DashboardSprayLog): SprayLog {
 }
 
 async function loadDashboard() {
-  try {
-    const overview = await getDashboardOverview()
-    environmentMetrics.value = (overview.environmentMetrics || []).map(formatMetric)
-    deviceSummaries.value = (overview.deviceSummaries || []).map(formatDeviceSummary)
-    alarmRecords.value = (overview.alarmRecords || []).map(formatAlarm)
-    sprayLogs.value = (overview.sprayLogs || []).map(formatSprayLog)
-    riskLabels.value = (overview.riskStats || []).map((item) => item.label)
-    riskValues.value = (overview.riskStats || []).map((item) => Number(item.value) || 0)
-  } catch {
-    environmentMetrics.value = []
-    deviceSummaries.value = []
-    alarmRecords.value = []
-    sprayLogs.value = []
-    riskLabels.value = []
-    riskValues.value = []
-  }
-  updateRiskChart()
+  const overviewRequest = getDashboardBaseOverview()
+    .then((overview) => {
+      environmentMetrics.value = (overview.environmentMetrics || []).map(formatMetric)
+      alarmRecords.value = (overview.alarmRecords || []).map(formatAlarm)
+      riskLabels.value = (overview.riskStats || []).map((item) => item.label)
+      riskValues.value = (overview.riskStats || []).map((item) => Number(item.value) || 0)
+      updateRiskChart()
+    })
+    .catch(() => {
+      if (!environmentMetrics.value.length) environmentMetrics.value = []
+      if (!alarmRecords.value.length) alarmRecords.value = []
+      if (!riskLabels.value.length) {
+        riskLabels.value = []
+        riskValues.value = []
+        updateRiskChart()
+      }
+    })
+
+  const devicesRequest = getDashboardDeviceSummaries()
+    .then((summaries) => {
+      deviceSummaries.value = summaries.map(formatDeviceSummary)
+    })
+    .catch(() => {
+      if (!deviceSummaries.value.length) deviceSummaries.value = []
+    })
+
+  const sprayRequest = getDashboardSprayLogs()
+    .then((logs) => {
+      sprayLogs.value = logs.map(formatSprayLog)
+    })
+    .catch(() => {
+      if (!sprayLogs.value.length) sprayLogs.value = []
+    })
+
+  await Promise.allSettled([overviewRequest, devicesRequest, sprayRequest])
 }
 
 const dashboardPolling = usePolling(loadDashboard, 3000)

@@ -168,16 +168,23 @@ function normalizeSprayMode(value?: string | null) {
 
 export function getDashboardOverview() {
   return Promise.all([
-    get<BackendDashboardOverview>('/dashboard/overview'),
-    get<BackendDeviceOverview>('/construction-devices/overview'),
-    get<PageResult<BackendSprayRecord>>('/environment/spray-records', { page: 1, pageSize: 4 })
-  ]).then(([overview, deviceOverview, sprayRecords]) => ({
+    getDashboardBaseOverview(),
+    getDashboardDeviceSummaries(),
+    getDashboardSprayLogs()
+  ]).then(([overview, deviceSummaries, sprayLogs]) => ({
+    ...overview,
+    deviceSummaries,
+    sprayLogs
+  }))
+}
+
+export function getDashboardBaseOverview() {
+  return get<BackendDashboardOverview>('/dashboard/overview').then((overview) => ({
     environmentMetrics: (overview.environment || []).map((metric) => ({
       label: metric.name,
       value: metric.value,
       unit: metric.unit
     })),
-    deviceSummaries: buildDeviceSummaries(deviceOverview),
     alarmRecords: (overview.latestAlarms || []).map((alarm) => ({
       id: alarm.id,
       content: alarm.content || '-',
@@ -186,12 +193,21 @@ export function getDashboardOverview() {
       level: alarm.alarmLevel,
       status: normalizeStatus(alarm.status)
     })),
-    sprayLogs: (sprayRecords.records || []).map((record) => ({
+    riskStats: buildRiskStats(overview)
+  }))
+}
+
+export function getDashboardDeviceSummaries() {
+  return get<BackendDeviceOverview>('/construction-devices/overview').then(buildDeviceSummaries)
+}
+
+export function getDashboardSprayLogs() {
+  return get<PageResult<BackendSprayRecord>>('/environment/spray-records', { page: 1, pageSize: 4 }).then((sprayRecords) =>
+    (sprayRecords.records || []).map((record) => ({
       id: record.id,
       content: record.sprayDeviceName || record.taskName || '喷淋设备',
       mode: normalizeSprayMode(record.operationType || record.triggerType),
       time: record.startedAt || '-'
-    })),
-    riskStats: buildRiskStats(overview)
-  }))
+    }))
+  )
 }

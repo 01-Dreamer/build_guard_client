@@ -154,6 +154,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('../views/personnel/ViolationHandlingView.vue')
   },
   {
+    path: '/ai-chat',
+    name: 'ai-chat',
+    component: () => import('../views/ai-chat/AiChatView.vue')
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }

@@ -179,7 +179,7 @@ onMounted(loadRecords)
               </thead>
               <tbody>
                 <tr v-for="record in records" :key="record.id">
-                  <td>{{ record.id }}</td>
+                  <td class="index-cell">{{ record.id }}</td>
                   <td :title="record.deviceName || '-'">{{ record.deviceName || '-' }}</td>
                   <td>{{ record.alarmType || '-' }}</td>
                   <td :title="record.content || '-'">{{ record.content || '-' }}</td>
@@ -217,14 +217,28 @@ onMounted(loadRecords)
 .records-stack {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 14px;
+  gap: 12px;
   height: 100%;
   min-height: 0;
   padding: 4px 16px 24px;
 }
 
+.alarm-filter {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+  gap: 10px 12px;
+  align-items: end;
+  padding: 14px 18px;
+}
+
 .alarm-filter label {
-  width: 220px;
+  width: auto;
+  min-width: 0;
+}
+
+.alarm-filter .equipment-actions {
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .table-panel {
@@ -235,51 +249,69 @@ onMounted(loadRecords)
 
 .record-table-body {
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .alarm-table {
-  min-width: 1320px;
+  min-width: 0;
 }
 
 .col-index {
-  width: 72px;
+  width: 82px;
 }
 
 .col-device {
-  width: 150px;
+  width: 140px;
 }
 
 .col-content {
-  width: 260px;
+  width: auto;
 }
 
 .col-time {
-  width: 172px;
+  width: 150px;
 }
 
 .col-type {
-  width: 150px;
+  width: 112px;
 }
 
 .col-value,
 .col-limit {
-  width: 112px;
+  width: 88px;
 }
 
 .col-unit {
-  width: 80px;
+  width: 64px;
 }
 
 .col-status {
-  width: 116px;
+  width: 92px;
 }
 
 .col-action {
-  width: 108px;
+  width: 66px;
 }
 
 .time-cell {
   font-size: 13px;
+}
+
+.alarm-table :is(th, td):first-child,
+.index-cell {
+  overflow-wrap: normal !important;
+  white-space: nowrap !important;
+  word-break: keep-all;
+}
+
+@media (max-width: 1380px) {
+  .alarm-filter {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .alarm-filter .equipment-actions {
+    grid-column: 1 / -1;
+  }
 }
 </style>

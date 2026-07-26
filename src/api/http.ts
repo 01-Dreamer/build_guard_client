@@ -1,6 +1,22 @@
-export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ||
-  'http://127.0.0.1:18080/api'
+function defaultApiBaseUrl() {
+  if (location.protocol === 'https:') {
+    return 'https://data.zxylearn.top/api'
+  }
+  return 'http://127.0.0.1:18080/api'
+}
+
+function normalizeApiBaseUrl(value?: string) {
+  const configured = value?.trim()
+  if (!configured) return defaultApiBaseUrl()
+
+  if (location.protocol === 'https:' && /^http:\/\/(110\.41\.166\.11|127\.0\.0\.1|localhost):18080\/api\/?$/i.test(configured)) {
+    return 'https://data.zxylearn.top/api'
+  }
+
+  return configured.replace(/\/+$/, '')
+}
+
+export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL as string | undefined)
 
 export interface PageResult<T> {
   records: T[]
